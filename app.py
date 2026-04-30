@@ -219,6 +219,8 @@ button.danger:hover{background:rgba(255,23,68,.1)}
     <a href="/scan" {% if active=='scan' %}class="on"{% endif %}>PORT SCAN</a>
     <a href="/packet" {% if active=='packet' %}class="on"{% endif %}>PACKETS</a>
     <a href="/threat" {% if active=='threat' %}class="on"{% endif %}>THREAT INTEL</a>
+    <a href="/extract" {% if active=='extract' %}class="on"{% endif %}>IOC EXTRACT</a>
+    <a href="/scan-url" {% if active=='scan-url' %}class="on"{% endif %}>SCAN URL</a>
   </nav>
 </header>
 <main>
@@ -450,6 +452,121 @@ function refreshFeed(){
 {% endif %}
 """)
 
+# ── EXTRACTOR PAGE ────────────────────────────────────────────────────
+EXTRACTOR_TMPL = BASE.replace("{% block body %}{% endblock %}", """
+<h1>&#x1F50D; IOC THREAT EXTRACTOR</h1>
+<div class="alert alert-info">Extract indicators of compromise (IPs, domains, hashes, malware names) from content.</div>
+
+<div class="card">
+  <div class="card-title">EXTRACT INDICATORS</div>
+  <form method="POST" action="/extract">
+    <div class="input-row">
+      <select name="mode" style="width:160px">
+        <option value="text">Raw Content</option>
+        <option value="url">From URL</option>
+      </select>
+      <textarea id="content" name="content" placeholder="Paste content or enter URL..." style="width:100%;min-height:120px;border:1px solid #1a4a6e;background:#0a1525;color:#b0d4ee;font-family:monospace;padding:10px;border-radius:2px" required></textarea>
+      <button type="submit" style="width:100%;margin-top:10px">&#x26A1; EXTRACT</button>
+    </div>
+  </form>
+</div>
+
+{% if result and not result.get('error') %}
+<div class="stats">
+  <div class="stat-box">
+    <div class="stat-val">{{ result.stats.ipv4_count }}</div>
+    <div class="stat-lbl">IPv4 ADDRESSES</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ result.stats.domain_count }}</div>
+    <div class="stat-lbl">DOMAINS</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val red">{{ result.stats.suspicious_domain_count }}</div>
+    <div class="stat-lbl">SUSPICIOUS</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ result.stats.hash_count }}</div>
+    <div class="stat-lbl">HASHES</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val yellow">{{ result.stats.malware_families }}</div>
+    <div class="stat-lbl">MALWARE</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ result.stats.threat_level }}</div>
+    <div class="stat-lbl">THREAT LEVEL</div>
+  </div>
+</div>
+
+{% if result.indicators.ipv4 %}
+<div class="card">
+  <div class="card-title">IPv4 ADDRESSES ({{ result.indicators.ipv4|length }})</div>
+  <table>
+    <tbody>
+    {% for ip in result.indicators.ipv4 %}
+    <tr><td class="blue">{{ ip }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if result.indicators.domains.clean or result.indicators.domains.suspicious %}
+<div class="card">
+  <div class="card-title">DOMAINS ({{ result.indicators.domains.clean|length + result.indicators.domains.suspicious|length }})</div>
+  <table>
+    <tbody>
+    {% for domain, reason in result.indicators.domains.clean.items() %}
+    <tr><td class="blue">{{ domain }}</td><td class="dim" style="font-size:.7rem">{{ reason }}</td></tr>
+    {% endfor %}
+    {% for domain, reason in result.indicators.domains.suspicious.items() %}
+    <tr><td class="yellow">{{ domain }}</td><td class="yellow" style="font-size:.7rem">⚠ {{ reason }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if result.indicators.hashes.md5 or result.indicators.hashes.sha1 or result.indicators.hashes.sha256 %}
+<div class="card">
+  <div class="card-title">FILE HASHES ({{ result.indicators.hashes.md5|length + result.indicators.hashes.sha1|length + result.indicators.hashes.sha256|length }})</div>
+  <table>
+    <thead><tr><th>TYPE</th><th>HASH</th></tr></thead>
+    <tbody>
+    {% for h in result.indicators.hashes.md5 %}
+    <tr><td class="dim" style="font-size:.7rem">MD5</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
+    {% endfor %}
+    {% for h in result.indicators.hashes.sha1 %}
+    <tr><td class="dim" style="font-size:.7rem">SHA1</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
+    {% endfor %}
+    {% for h in result.indicators.hashes.sha256 %}
+    <tr><td class="dim" style="font-size:.7rem">SHA256</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if result.indicators.malware_families %}
+<div class="card">
+  <div class="card-title">MALWARE FAMILIES ({{ result.indicators.malware_families|length }})</div>
+  <table>
+    <thead><tr><th>FAMILY</th><th>MENTIONS</th></tr></thead>
+    <tbody>
+    {% for malware, count in result.indicators.malware_families.items() %}
+    <tr><td class="yellow">{{ malware }}</td><td class="red">{{ count }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% elif result and result.get('error') %}
+<div class="alert alert-err">&#x26A0; {{ result.error }}</div>
+{% endif %}
+""")
+
 # ── THREAT PAGE ───────────────────────────────────────────────────────
 THREAT_TMPL = BASE.replace("{% block body %}{% endblock %}", """
 <h1>&#x1F3AF; THREAT INTELLIGENCE</h1>
@@ -512,6 +629,117 @@ THREAT_TMPL = BASE.replace("{% block body %}{% endblock %}", """
     </tbody>
   </table>
 </div>
+""")
+
+# ── SCAN URL PAGE ─────────────────────────────────────────────────────
+SCAN_URL_TMPL = BASE.replace("{% block body %}{% endblock %}", """
+<h1>&#x1F50D; SCAN URL FOR THREATS</h1>
+<div class="alert alert-info">Fetch webpage, extract clean content, analyze for IoCs (IPs, domains, hashes, malware).</div>
+
+<div class="card">
+  <div class="card-title">ENTER URL</div>
+  <form method="POST" action="/scan-url">
+    <div class="input-row">
+      <input type="text" name="url" placeholder="https://example.com" value="{{ url }}" style="width:400px" required>
+      <button type="submit">&#x26A1; SCAN</button>
+    </div>
+  </form>
+</div>
+
+{% if result and not result.get('error') %}
+<div class="stats">
+  <div class="stat-box">
+    <div class="stat-val">{{ result.stats.ipv4_count }}</div>
+    <div class="stat-lbl">IPv4 ADDRESSES</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ result.stats.domain_count }}</div>
+    <div class="stat-lbl">DOMAINS</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val red">{{ result.stats.suspicious_domain_count }}</div>
+    <div class="stat-lbl">SUSPICIOUS</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ result.stats.hash_count }}</div>
+    <div class="stat-lbl">HASHES</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val yellow">{{ result.stats.malware_families }}</div>
+    <div class="stat-lbl">MALWARE</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ result.stats.threat_level }}</div>
+    <div class="stat-lbl">THREAT LEVEL</div>
+  </div>
+</div>
+
+{% if result.indicators.ipv4 %}
+<div class="card">
+  <div class="card-title">IPv4 ADDRESSES ({{ result.indicators.ipv4|length }})</div>
+  <table>
+    <tbody>
+    {% for ip in result.indicators.ipv4 %}
+    <tr><td class="blue">{{ ip }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if result.indicators.domains.clean or result.indicators.domains.suspicious %}
+<div class="card">
+  <div class="card-title">DOMAINS ({{ result.indicators.domains.clean|length + result.indicators.domains.suspicious|length }})</div>
+  <table>
+    <tbody>
+    {% for domain, reason in result.indicators.domains.clean.items() %}
+    <tr><td class="blue">{{ domain }}</td><td class="dim" style="font-size:.7rem">{{ reason }}</td></tr>
+    {% endfor %}
+    {% for domain, reason in result.indicators.domains.suspicious.items() %}
+    <tr><td class="yellow">{{ domain }}</td><td class="yellow" style="font-size:.7rem">⚠ {{ reason }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if result.indicators.hashes.md5 or result.indicators.hashes.sha1 or result.indicators.hashes.sha256 %}
+<div class="card">
+  <div class="card-title">HASHES ({{ result.indicators.hashes.md5|length + result.indicators.hashes.sha1|length + result.indicators.hashes.sha256|length }})</div>
+  <table>
+    <thead><tr><th>TYPE</th><th>HASH</th></tr></thead>
+    <tbody>
+    {% for h in result.indicators.hashes.md5 %}
+    <tr><td class="dim" style="font-size:.7rem">MD5</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
+    {% endfor %}
+    {% for h in result.indicators.hashes.sha1 %}
+    <tr><td class="dim" style="font-size:.7rem">SHA1</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
+    {% endfor %}
+    {% for h in result.indicators.hashes.sha256 %}
+    <tr><td class="dim" style="font-size:.7rem">SHA256</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if result.indicators.malware_families %}
+<div class="card">
+  <div class="card-title">MALWARE FAMILIES ({{ result.indicators.malware_families|length }})</div>
+  <table>
+    <thead><tr><th>FAMILY</th><th>MENTIONS</th></tr></thead>
+    <tbody>
+    {% for malware, count in result.indicators.malware_families.items() %}
+    <tr><td class="yellow">{{ malware }}</td><td class="red">{{ count }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% elif result and result.get('error') %}
+<div class="alert alert-err">&#x26A0; {{ result.error }}</div>
+{% endif %}
 """)
 
 # ── ROUTES ────────────────────────────────────────────────────────────
@@ -611,6 +839,45 @@ def threat():
         query_ip=query_ip,
         result=result,
         blacklist=get_local_blacklist()
+    )
+
+
+@app.route("/extract", methods=["GET", "POST"])
+def extract():
+    from threat_extractor import extract, extract_from_url
+    result = None
+    if request.method == "POST":
+        mode = request.form.get("mode", "text")
+        content = request.form.get("content", "").strip()
+        if content:
+            if mode == "url":
+                result = extract_from_url(content)
+            else:
+                result = extract(content)
+    return render_template_string(EXTRACTOR_TMPL,
+        active="extract", title="IOC EXTRACT",
+        result=result
+    )
+
+
+@app.route("/scan-url", methods=["GET", "POST"])
+def scan_url():
+    from web_fetcher import fetch_and_clean
+    from threat_extractor import extract
+    url = request.form.get("url", "") if request.method == "POST" else request.args.get("url", "")
+    url = url.strip() if url else ""
+    result = None
+    if url:
+        fetch_result = fetch_and_clean(url)
+        if fetch_result.get("error"):
+            result = {"error": fetch_result["error"], "url": url}
+        else:
+            content = fetch_result.get("content", "")
+            result = extract(content, source_url=url)
+    return render_template_string(SCAN_URL_TMPL,
+        active="scan-url", title="SCAN URL",
+        url=url,
+        result=result
     )
 
 
