@@ -215,12 +215,16 @@ button.danger:hover{background:rgba(255,23,68,.1)}
   <span class="live-badge">LIVE</span>
   <nav>
     <a href="/" {% if active=='home' %}class="on"{% endif %}>HOME</a>
+    <a href="/login" {% if active=='login' %}class="on"{% endif %}>LOGIN</a>
+    <a href="/dashboard" {% if active=='dashboard' %}class="on"{% endif %}>DASHBOARD</a>
     <a href="/log" {% if active=='log' %}class="on"{% endif %}>AUTH LOG</a>
     <a href="/scan" {% if active=='scan' %}class="on"{% endif %}>PORT SCAN</a>
     <a href="/packet" {% if active=='packet' %}class="on"{% endif %}>PACKETS</a>
     <a href="/threat" {% if active=='threat' %}class="on"{% endif %}>THREAT INTEL</a>
     <a href="/extract" {% if active=='extract' %}class="on"{% endif %}>IOC EXTRACT</a>
     <a href="/scan-url" {% if active=='scan-url' %}class="on"{% endif %}>SCAN URL</a>
+    <a href="/alerts" {% if active=='alerts' %}class="on"{% endif %}>ALERTS</a>
+    <a href="/audit-pwd" {% if active=='audit-pwd' %}class="on"{% endif %}>PWD AUDIT</a>
   </nav>
 </header>
 <main>
@@ -261,6 +265,248 @@ HOME_TMPL = BASE.replace("{% block body %}{% endblock %}", """
     </a>
   </div>
 </div>
+""")
+
+# ── LOGIN PAGE ────────────────────────────────────────────────────────
+LOGIN_TMPL = BASE.replace("{% block body %}{% endblock %}", """
+<h1>&#x1F512; USER LOGIN</h1>
+<div style="max-width:400px;margin:60px auto">
+  <div class="card">
+    <div class="card-title">AUTHENTICATE</div>
+    {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
+    <form method="POST" action="/login">
+      <div style="margin-bottom:16px">
+        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">USERNAME</label>
+        <input type="text" name="username" placeholder="admin" required style="width:100%">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">PASSWORD</label>
+        <input type="password" name="password" placeholder="••••••••" required style="width:100%">
+      </div>
+      <button type="submit" style="width:100%;margin-bottom:12px">&#x2714; LOGIN</button>
+    </form>
+    <div style="text-align:center;font-size:.75rem;color:var(--dim)">
+      No account? <a href="/register" style="color:var(--accent);text-decoration:none">Register here</a>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:20px;font-size:.75rem;color:var(--dimmer)">
+    Demo: username=<strong>admin</strong> | password=<strong>admin@123</strong>
+  </div>
+</div>
+""")
+
+# ── REGISTER PAGE ─────────────────────────────────────────────────────
+REGISTER_TMPL = BASE.replace("{% block body %}{% endblock %}", """
+<h1>&#x1F4DD; CREATE ACCOUNT</h1>
+<div style="max-width:400px;margin:60px auto">
+  <div class="card">
+    <div class="card-title">NEW USER</div>
+    {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
+    {% if success %}<div class="alert alert-warn">Account created! <a href="/login" style="color:var(--accent)">Login now</a></div>{% endif %}
+    <form method="POST" action="/register">
+      <div style="margin-bottom:16px">
+        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">USERNAME (3+ chars)</label>
+        <input type="text" name="username" placeholder="newuser" required style="width:100%">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">PASSWORD (8+ chars)</label>
+        <input type="password" name="password" placeholder="••••••••" required style="width:100%" id="pwd1">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">CONFIRM PASSWORD</label>
+        <input type="password" name="password2" placeholder="••••••••" required style="width:100%">
+      </div>
+      <button type="submit" style="width:100%;margin-bottom:12px">&#x2714; CREATE ACCOUNT</button>
+    </form>
+    <div style="text-align:center;font-size:.75rem;color:var(--dim)">
+      Already have account? <a href="/login" style="color:var(--accent);text-decoration:none">Login here</a>
+    </div>
+  </div>
+</div>
+""")
+
+# ── PASSWORD AUDIT PAGE ───────────────────────────────────────────────
+AUDIT_PWD_TMPL = BASE.replace("{% block body %}{% endblock %}", """
+<h1>&#x1F50D; PASSWORD STRENGTH AUDITOR</h1>
+<div class="alert alert-info">Analyze password strength with industry-standard checks.</div>
+
+<div class="card">
+  <div class="card-title">AUDIT PASSWORD</div>
+  <form method="POST" action="/audit-pwd">
+    <div class="input-row">
+      <input type="password" name="password" placeholder="Enter password to audit..." required style="width:300px">
+      <button type="submit">&#x1F50D; ANALYZE</button>
+    </div>
+  </form>
+</div>
+
+{% if result %}
+<div class="card">
+  <div class="card-title">RESULT</div>
+  <div class="stats">
+    <div class="stat-box">
+      <div class="stat-val {% if result.strength=='WEAK' %}red{% elif result.strength=='FAIR' %}yellow{% elif result.strength=='GOOD' %}blue{% else %}green{% endif %}">
+        {{ result.strength }}
+      </div>
+      <div class="stat-lbl">STRENGTH</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val {% if result.score < 40 %}red{% elif result.score < 60 %}yellow{% elif result.score < 80 %}blue{% else %}green{% endif %}">
+        {{ result.score }}/100
+      </div>
+      <div class="stat-lbl">SCORE</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val {% if result.verdict=='PASS' %}green{% else %}red{% endif %}">{{ result.verdict }}</div>
+      <div class="stat-lbl">VERDICT</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val">{{ result.length }}</div>
+      <div class="stat-lbl">CHARACTERS</div>
+    </div>
+  </div>
+
+  {% if result.issues %}
+  <div class="card" style="background:rgba(255,23,68,.05);border:1px solid rgba(255,23,68,.3)">
+    <div class="card-title" style="color:var(--accent2)">⚠ ISSUES FOUND</div>
+    <ul style="margin-left:20px;font-size:.8rem">
+      {% for issue in result.issues %}
+      <li style="color:var(--accent2);margin-bottom:6px">{{ issue }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="alert alert-warn">✓ No security issues detected</div>
+  {% endif %}
+
+  {% if result.recommendations %}
+  <div class="card">
+    <div class="card-title" style="color:var(--accent3)">💡 RECOMMENDATIONS</div>
+    <ul style="margin-left:20px;font-size:.8rem">
+      {% for rec in result.recommendations %}
+      <li style="color:var(--accent3);margin-bottom:6px">{{ rec }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <table style="margin-top:16px">
+    <tr><td class="dim">Uppercase</td><td>{% if result.has_uppercase %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td></tr>
+    <tr><td class="dim">Lowercase</td><td>{% if result.has_lowercase %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td></tr>
+    <tr><td class="dim">Numbers</td><td>{% if result.has_digits %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td></tr>
+    <tr><td class="dim">Special Chars</td><td>{% if result.has_special %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td></tr>
+  </table>
+</div>
+{% endif %}
+""")
+
+# ── DASHBOARD PAGE ────────────────────────────────────────────────────
+DASHBOARD_TMPL = BASE.replace("{% block body %}{% endblock %}", """
+<h1>&#x1F4CA; SECURITY DASHBOARD</h1>
+<div class="alert alert-info">Real-time overview of system security metrics and events.</div>
+
+<div class="stats">
+  <div class="stat-box">
+    <div class="stat-val {% if data.security_gauge.score >= 80 %}green{% elif data.security_gauge.score >= 60 %}blue{% elif data.security_gauge.score >= 40 %}yellow{% else %}red{% endif %}">
+      {{ data.security_gauge.score }}
+    </div>
+    <div class="stat-lbl">SECURITY SCORE</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ data.stats.total_events }}</div>
+    <div class="stat-lbl">AUTH EVENTS</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val red">{{ data.stats.brute_force_ips }}</div>
+    <div class="stat-lbl">BRUTE FORCE IPs</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val yellow">{{ data.stats.suspicious_ips }}</div>
+    <div class="stat-lbl">SUSPICIOUS IPs</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ data.stats.packets_captured }}</div>
+    <div class="stat-lbl">PACKETS</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val red">{{ data.stats.flagged_packets }}</div>
+    <div class="stat-lbl">THREATS</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">VERDICT: {{ data.security_gauge.level }}</div>
+  <p style="font-size:.8rem;color:var(--dim)">Threats: {{ data.security_gauge.threats_detected }} | Flagged: {{ data.security_gauge.flagged_packets }} | Total Events: {{ data.security_gauge.total_events }}</p>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+  <div class="card">
+    <div class="card-title">TOP ATTACK IPs</div>
+    <table>
+      <thead><tr><th>IP</th><th>ATTEMPTS</th></tr></thead>
+      <tbody>
+      {% for ip_data in data.top_ips.labels[:5] %}
+      <tr><td class="blue">{{ data.top_ips.labels[loop.index0] }}</td><td class="red">{{ data.top_ips.values[loop.index0] }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" class="dim">No attacks detected</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">PROTOCOL DISTRIBUTION</div>
+    <table>
+      <thead><tr><th>PROTOCOL</th><th>COUNT</th></tr></thead>
+      <tbody>
+      {% for proto in data.protocol_dist.labels %}
+      <tr><td class="yellow">{{ proto }}</td><td>{{ data.protocol_dist.values[loop.index0] }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" class="dim">No packets</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+""")
+
+# ── ALERTS PAGE ───────────────────────────────────────────────────────
+ALERTS_TMPL = BASE.replace("{% block body %}{% endblock %}", """
+<h1>&#x26A0; INTRUSION ALERTS</h1>
+
+<div class="stats">
+  <div class="stat-box"><div class="stat-val red">{{ stats.critical }}</div><div class="stat-lbl">CRITICAL</div></div>
+  <div class="stat-box"><div class="stat-val yellow">{{ stats.high }}</div><div class="stat-lbl">HIGH</div></div>
+  <div class="stat-box"><div class="stat-val blue">{{ stats.medium }}</div><div class="stat-lbl">MEDIUM</div></div>
+  <div class="stat-box"><div class="stat-val">{{ stats.low }}</div><div class="stat-lbl">LOW</div></div>
+  <div class="stat-box"><div class="stat-val">{{ stats.total }}</div><div class="stat-lbl">TOTAL</div></div>
+</div>
+
+{% if alerts %}
+<div class="card">
+  <div class="card-title">ACTIVE ALERTS</div>
+  <table style="font-size:.75rem">
+    <thead><tr><th>TIME</th><th>SEVERITY</th><th>PATTERN</th><th>SOURCE</th><th>DESCRIPTION</th></tr></thead>
+    <tbody>
+    {% for alert in alerts %}
+    <tr>
+      <td class="dim">{{ alert.timestamp[11:19] }}</td>
+      <td>
+        <span class="badge {% if alert.severity=='CRITICAL' %}badge-red{% elif alert.severity=='HIGH' %}badge-yellow{% elif alert.severity=='MEDIUM' %}badge-blue{% else %}badge-green{% endif %}">
+          {{ alert.severity }}
+        </span>
+      </td>
+      <td class="yellow">{{ alert.pattern }}</td>
+      <td class="blue">{{ alert.source_ip }}</td>
+      <td style="flex:1">{{ alert.description }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">✓ No alerts generated. System is clean.</div>
+{% endif %}
 """)
 
 # ── LOG PAGE ──────────────────────────────────────────────────────────
@@ -879,6 +1125,141 @@ def scan_url():
         url=url,
         result=result
     )
+
+
+# ── NEW MODULES: LOGIN, AUTH, DASHBOARD, ALERTS ───────────────────────
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    from auth_manager import login_user
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        result = login_user(username, password)
+        if result["success"]:
+            resp = render_template_string(HOME_TMPL, active="home", title="HOME")
+            resp = render_template_string(resp if isinstance(resp, str) else str(resp))
+            from flask import make_response
+            resp_obj = make_response(resp)
+            resp_obj.set_cookie("session_token", result["token"], max_age=3600, httponly=True)
+            return resp_obj
+        else:
+            error = result.get("error", "Login failed")
+    return render_template_string(LOGIN_TMPL,
+        active="login", title="LOGIN",
+        error=error
+    )
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    from auth_manager import create_user, login_user
+    from password_auditor import audit_password_pair
+    error = None
+    success = False
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        password2 = request.form.get("password2", "")
+
+        # Validate passwords match
+        pwd_audit = audit_password_pair(password, password2)
+        if not pwd_audit["match"]:
+            error = "Passwords do not match"
+        elif pwd_audit["verdict"] == "FAIL":
+            error = "Password too weak. " + (pwd_audit["issues"][0] if pwd_audit["issues"] else "See audit tool")
+        else:
+            result = create_user(username, password)
+            if result["success"]:
+                success = True
+                error = None
+            else:
+                error = result.get("error", "Registration failed")
+
+    return render_template_string(REGISTER_TMPL,
+        active="login", title="REGISTER",
+        error=error,
+        success=success
+    )
+
+
+@app.route("/logout")
+def logout():
+    from flask import make_response, redirect
+    resp = make_response(redirect("/"))
+    resp.delete_cookie("session_token")
+    return resp
+
+
+@app.route("/audit-pwd", methods=["GET", "POST"])
+def audit_pwd():
+    from password_auditor import audit_password
+    result = None
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if password:
+            result = audit_password(password)
+    return render_template_string(AUDIT_PWD_TMPL,
+        active="audit-pwd", title="PWD AUDIT",
+        result=result
+    )
+
+
+@app.route("/dashboard")
+def dashboard():
+    from log_scanner import read_windows_auth_log
+    from packet_capture import get_packets, get_status
+    from visualizer import generate_dashboard_data
+
+    log_data = read_windows_auth_log(hours_back=24)
+    packets = get_packets(limit=500)
+    packet_data = {"packets": packets}
+
+    data = generate_dashboard_data(log_data, packet_data, [])
+
+    return render_template_string(DASHBOARD_TMPL,
+        active="dashboard", title="DASHBOARD",
+        data=data
+    )
+
+
+@app.route("/alerts")
+def alerts():
+    from intrusion_monitor import get_alerts, get_alert_stats, analyze_auth_events, analyze_packets
+    from log_scanner import read_windows_auth_log
+    from packet_capture import get_packets
+
+    # Analyze recent events
+    log_data = read_windows_auth_log(hours_back=24)
+    packets = get_packets(limit=200)
+
+    # Generate alerts from current events
+    analyze_auth_events(
+        log_data.get("events", []),
+        log_data.get("brute_force", [])
+    )
+    analyze_packets(packets)
+
+    alerts_list = get_alerts(limit=100)
+    stats = get_alert_stats()
+
+    return render_template_string(ALERTS_TMPL,
+        active="alerts", title="ALERTS",
+        alerts=alerts_list,
+        stats=stats
+    )
+
+
+@app.route("/alerts/data")
+def alerts_data():
+    from intrusion_monitor import get_alerts, get_alert_stats
+    alerts_list = get_alerts(limit=50)
+    stats = get_alert_stats()
+    return jsonify({
+        "alerts": alerts_list,
+        "stats": stats
+    })
 
 
 if __name__ == "__main__":

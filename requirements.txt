@@ -2,3 +2,5 @@ flask>=2.0
 scapy>=2.5
 pywin32>=306
 requests>=2.25
+beautifulsoup4>=4.9
+plotly>=5.0
