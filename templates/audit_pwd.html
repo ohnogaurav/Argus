@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>🛡️ Credential Strength Auditor</h1>
+<div class="alert alert-info">
+    <strong>Module Purpose:</strong> Audit proposed passwords against enterprise policy rules: minimum character lengths, character composition diversity, repeated sequences, and known common passwords.
+</div>
+
+<div class="card">
+    <div class="card-title">Audit Proposed Password</div>
+    <form method="POST" action="/audit-pwd">
+        <div class="input-row">
+            <input type="password" name="password" placeholder="Enter password to evaluate..." style="flex-grow: 2; min-width: 250px;" required>
+            <button type="submit">AUDIT CREDENTIAL</button>
+        </div>
+    </form>
+</div>
+
+{% if result %}
+<div class="card">
+    <div class="card-title">Audit Assessment Evaluation</div>
+    <div class="stats" style="margin-bottom: 20px;">
+        <div class="stat-box">
+            <div class="stat-val {% if result.strength=='STRONG' %}green{% elif result.strength=='GOOD' %}blue{% elif result.strength=='FAIR' %}orange{% else %}red{% endif %}">
+                {{ result.strength }}
+            </div>
+            <div class="stat-lbl">Strength Level</div>
+        </div>
+        
+        <div class="stat-box">
+            <div class="stat-val {% if result.score >= 80 %}green{% elif result.score >= 50 %}orange{% else %}red{% endif %}">
+                {{ result.score }}/100
+            </div>
+            <div class="stat-lbl">Computed Security Score</div>
+        </div>
+        
+        <div class="stat-box">
+            <div class="stat-val {% if result.verdict=='PASS' %}green{% else %}red{% endif %}">
+                {{ result.verdict }}
+            </div>
+            <div class="stat-lbl">Policy Evaluation</div>
+        </div>
+        
+        <div class="stat-box">
+            <div class="stat-val" style="color:#fff">{{ result.length }}</div>
+            <div class="stat-lbl">Characters Count</div>
+        </div>
+    </div>
+
+    {% if result.issues %}
+    <div class="card" style="background: rgba(244, 63, 94, 0.04); border-color: rgba(244, 63, 94, 0.25); margin-bottom: 20px;">
+        <div class="card-title" style="color: var(--accent-red);">⚠️ Security Issues Found</div>
+        <ul style="margin-left: 20px; font-size: 0.88rem; line-height: 1.6;">
+            {% for issue in result.issues %}
+                <li style="color: #fda4af;">{{ issue }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="alert alert-info" style="background: rgba(16, 185, 129, 0.08); border-color: var(--accent-green); color: var(--accent-green); margin-bottom: 20px;">
+        <strong>✓ Verification Passed:</strong> No structural security issues detected.
+    </div>
+    {% endif %}
+
+    {% if result.recommendations %}
+    <div class="card" style="margin-bottom: 20px;">
+        <div class="card-title" style="color: var(--accent-orange);">💡 Mitigation Recommendations</div>
+        <ul style="margin-left: 20px; font-size: 0.88rem; line-height: 1.6;">
+            {% for rec in result.recommendations %}
+                <li style="color: var(--accent-orange);">{{ rec }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Structural Policy Check</th>
+                    <th>Result Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="color: var(--text-dim);">Contains Uppercase Letters (A-Z)</td>
+                    <td>
+                        {% if result.has_uppercase %}
+                            <span class="badge badge-green">PASSED</span>
+                        {% else %}
+                            <span class="badge badge-red">FAILED</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color: var(--text-dim);">Contains Lowercase Letters (a-z)</td>
+                    <td>
+                        {% if result.has_lowercase %}
+                            <span class="badge badge-green">PASSED</span>
+                        {% else %}
+                            <span class="badge badge-red">FAILED</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color: var(--text-dim);">Contains Numeric Digits (0-9)</td>
+                    <td>
+                        {% if result.has_digits %}
+                            <span class="badge badge-green">PASSED</span>
+                        {% else %}
+                            <span class="badge badge-red">FAILED</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color: var(--text-dim);">Contains Special Characters (!@#$%^&*)</td>
+                    <td>
+                        {% if result.has_special %}
+                            <span class="badge badge-green">PASSED</span>
+                        {% else %}
+                            <span class="badge badge-red">FAILED</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

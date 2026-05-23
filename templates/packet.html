@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>📊 Network Packet Sniffer</h1>
+
+{% if not scapy_ok and not is_simulation %}
+<div class="alert alert-err">
+    <strong>Dependencies Missing:</strong> Scapy/Npcap dependencies were not found.<br>
+    Please install Npcap (https://npcap.com) with WinPcap compatibility enabled and run the console as Administrator.
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-title">Packet Sniffing Control Console</div>
+    <div class="input-row">
+        <label style="font-size:0.8rem; color:var(--text-dim); font-weight:600;">INTERFACE</label>
+        <select id="iface" style="min-width: 250px;">
+            {% for i in interfaces %}
+                <option value="{{ i }}">{{ i }}</option>
+            {% else %}
+                <option value="simulated">Simulated Loopback Adapter</option>
+            {% endfor %}
+        </select>
+        
+        <label style="font-size:0.8rem; color:var(--text-dim); font-weight:600; margin-left:12px;">DURATION</label>
+        <input type="number" id="dur" value="30" min="5" max="300" style="width: 80px;"> 
+        <span style="color:var(--text-dark); font-size:0.8rem; font-family:var(--font-mono)">secs</span>
+        
+        <button onclick="startCap()" style="margin-left:auto;">START SNIFFING</button>
+        <button class="danger" onclick="stopCap()">STOP</button>
+        <button class="secondary" id="btn-filter" onclick="toggleFilter()">SHOW THREATS ONLY</button>
+    </div>
+</div>
+
+<div class="stats">
+    <div class="stat-box"><div class="stat-val" id="s-total">{{ total }}</div><div class="stat-lbl">Captured</div></div>
+    <div class="stat-box"><div class="stat-val red" id="s-flagged">{{ flagged }}</div><div class="stat-lbl">Flagged Threats</div></div>
+    <div class="stat-box"><div class="stat-val" id="s-running" style="color:var(--accent-green)">{{ 'ACTIVE' if running else 'IDLE' }}</div><div class="stat-lbl">Adapter Status</div></div>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="card-title" style="padding: 20px 24px 8px;">Network Packet Feed</div>
+    <div id="feed" style="max-height: 480px; overflow-y: auto;">
+        {% for p in packets %}
+        <div class="pkt-row {% if p.flagged %}pkt-flagged{% endif %}">
+            <span class="pkt-time">{{ p.time }}</span>
+            <span class="pkt-ip">{{ p.src }}</span>
+            <span class="pkt-arrow">&rarr;</span>
+            <span class="pkt-ip">{{ p.dst }}</span>
+            <span>
+                <span class="badge {% if p.proto=='TCP' %}badge-blue{% else %}badge-yellow{% endif %}" style="font-size:0.65rem;">
+                    {{ p.proto }}:{{ p.dport }}
+                </span>
+            </span>
+            <span class="pkt-payload">
+                {% if p.threats %}
+                    <span class="badge badge-red" style="font-size: 0.65rem; margin-right: 8px;">{{ p.threats|join(', ') }}</span>
+                {% endif %}
+                {{ p.payload }}
+            </span>
+        </div>
+        {% else %}
+        <div id="no-pkts" style="text-align: center; color: var(--text-dark); padding: 40px; font-family: var(--font-mono);">
+            No packets sniffed in buffer. Trigger a capture scan to view live packets.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    let filterThreats = false;
+    let autoRefresh = null;
+
+    function startCap() {
+        let iface = document.getElementById('iface').value;
+        let dur = document.getElementById('dur').value;
+        
+        fetch('/packet/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({iface, duration: parseInt(dur)})
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.ok) {
+                document.getElementById('s-running').textContent = 'ACTIVE';
+                document.getElementById('s-running').style.color = 'var(--accent-orange)';
+                if (autoRefresh) clearInterval(autoRefresh);
+                autoRefresh = setInterval(refreshFeed, 1500);
+            } else {
+                alert("Error starting capture: " + d.message);
+            }
+        });
+    }
+
+    function stopCap() {
+        fetch('/packet/stop', {method: 'POST'})
+        .then(() => {
+            document.getElementById('s-running').textContent = 'IDLE';
+            document.getElementById('s-running').style.color = 'var(--accent-green)';
+            if (autoRefresh) {
+                clearInterval(autoRefresh);
+                autoRefresh = null;
+            }
+            refreshFeed();
+        });
+    }
+
+    function toggleFilter() {
+        filterThreats = !filterThreats;
+        const btn = document.getElementById('btn-filter');
+        if (filterThreats) {
+            btn.textContent = "SHOW ALL PACKETS";
+            btn.classList.remove('secondary');
+            btn.classList.add('danger');
+        } else {
+            btn.textContent = "SHOW THREATS ONLY";
+            btn.classList.remove('danger');
+            btn.classList.add('secondary');
+        }
+        refreshFeed();
+    }
+
+    function refreshFeed() {
+        let url = '/packet/data?flagged_only=' + (filterThreats ? '1' : '0');
+        fetch(url)
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById('s-total').textContent = d.total;
+            document.getElementById('s-flagged').textContent = d.flagged;
+            document.getElementById('s-running').textContent = d.running ? 'ACTIVE' : 'IDLE';
+            document.getElementById('s-running').style.color = d.running ? 'var(--accent-orange)' : 'var(--accent-green)';
+            
+            let feed = document.getElementById('feed');
+            if (d.packets.length === 0) {
+                feed.innerHTML = `<div style="text-align: center; color: var(--text-dark); padding: 40px; font-family: var(--font-mono);">
+                    No matching packets in buffer.
+                </div>`;
+                return;
+            }
+            
+            feed.innerHTML = d.packets.map(p => `
+                <div class="pkt-row ${p.flagged ? 'pkt-flagged' : ''}">
+                    <span class="pkt-time">${p.time}</span>
+                    <span class="pkt-ip">${p.src}</span>
+                    <span class="pkt-arrow">&rarr;</span>
+                    <span class="pkt-ip">${p.dst}</span>
+                    <span>
+                        <span class="badge ${p.proto === 'TCP' ? 'badge-blue' : 'badge-yellow'}" style="font-size:0.65rem;">
+                            ${p.proto}:${p.dport}
+                        </span>
+                    </span>
+                    <span class="pkt-payload">
+                        ${p.threats.length ? `<span class="badge badge-red" style="font-size: 0.65rem; margin-right: 8px;">${p.threats.join(', ')}</span>` : ''}
+                        ${escapeHtml(p.payload)}
+                    </span>
+                </div>
+            `).join('');
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Auto-poll if server is already running when page loads
+    if (document.getElementById('s-running').textContent === 'ACTIVE') {
+        autoRefresh = setInterval(refreshFeed, 1500);
+    }
+</script>
+{% endblock %}

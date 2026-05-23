@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>🛡️ Security Operations Center <span>Dashboard</span></h1>
+
+<div class="stats">
+    <div class="stat-box">
+        <div class="stat-val {% if data.gauge.score >= 85 %}green{% elif data.gauge.score >= 60 %}orange{% else %}red{% endif %}">
+            {{ data.gauge.score }}%
+        </div>
+        <div class="stat-lbl">Security Rating</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-val red">{{ data.stats.threats }}</div>
+        <div class="stat-lbl">Critical Threats</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-val orange">{{ data.stats.flagged }}</div>
+        <div class="stat-lbl">Anomalies Detected</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-val">{{ data.stats.packets }}</div>
+        <div class="stat-lbl">Captured Packets</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-val">{{ data.stats.total_events }}</div>
+        <div class="stat-lbl">Scanned Events</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <div class="card-title">📉 Telemetry Timeline</div>
+        <div style="min-height: 350px;">
+            {{ data.charts.auth_timeline|safe }}
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">⚠️ Threat Vector Timeline</div>
+        <div style="min-height: 350px;">
+            {{ data.charts.threat_timeline|safe }}
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">🚨 Threat Vector Source distribution</div>
+        <div style="min-height: 350px;">
+            {{ data.charts.top_ips|safe }}
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">🌐 Packet Protocol Distribution</div>
+        <div style="min-height: 350px;">
+            {{ data.charts.protocol_dist|safe }}
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">⚖️ System Health Verdict</div>
+        <div style="display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 250px;">
+            <p style="font-size: 1.1rem; margin-bottom: 12px;">
+                Overall Verdict: 
+                <span class="badge {% if data.gauge.level=='SECURE' %}badge-green{% elif data.gauge.level=='FAIR' %}badge-blue{% elif data.gauge.level=='RISKY' %}badge-yellow{% else %}badge-red{% endif %}" style="font-size: 0.95rem; padding: 6px 16px;">
+                    {{ data.gauge.level }}
+                </span>
+            </p>
+            <p style="color: var(--text-dim); font-size: 0.88rem; line-height: 1.6; margin-bottom: 24px;">
+                This metric aggregates real-time indicators of compromise, failed logins, remote port scans, and malicious packet signatures. Keep system ratings above 85% to maintain a secure profile.
+            </p>
+            
+            <div class="score-bar" style="height: 16px; border-radius: 8px;">
+                <div class="score-fill {% if data.gauge.score >= 85 %}badge-green{% elif data.gauge.score >= 60 %}badge-yellow{% else %}badge-red{% endif %}" style="width: {{ data.gauge.score }}%; border-radius: 8px;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">🔴 Severity Breakdown</div>
+        <div style="min-height: 350px;">
+            {{ data.charts.alert_severity|safe }}
+        </div>
+    </div>
+</div>
+{% endblock %}

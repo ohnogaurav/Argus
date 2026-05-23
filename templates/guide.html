@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>📖 Argus User Guide &amp; Recruiter Manual</h1>
+<div class="alert alert-info">
+    <strong>Recruiter Portal:</strong> This guide provides a summary of the technical skills demonstrated in this project, step-by-step verification procedures, and details on how simulated fallbacks keep this platform operational in containerized cloud environments.
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 3fr; gap: 24px; align-items: start;">
+    <!-- Left Navigation Panel -->
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button id="tab-skills-btn" class="btn" style="width: 100%; justify-content: flex-start;" onclick="showTab('skills')">💻 Skills &amp; Architecture</button>
+        <button id="tab-test-btn" class="btn secondary" style="width: 100%; justify-content: flex-start;" onclick="showTab('test')">🔍 Verification Tests</button>
+        <button id="tab-sim-btn" class="btn secondary" style="width: 100%; justify-content: flex-start;" onclick="showTab('sim')">📡 Simulation Details</button>
+    </div>
+
+    <!-- Right Content Panel -->
+    <div class="card" style="margin-bottom: 0;">
+        <!-- Tab 1: Skills & Architecture -->
+        <div id="tab-skills" class="guide-tab">
+            <h2 style="font-size: 1.2rem; margin-bottom: 16px; color: var(--accent);">Developer Skill Showcase</h2>
+            <p style="color: var(--text-dim); line-height: 1.6; margin-bottom: 24px;">
+                Argus is built to demonstrate production-grade software engineering, network protocol understanding, security heuristics, and modern UI/UX design. Key skills showcased include:
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
+                    <strong style="color: #fff; display: block; margin-bottom: 6px;">⚙️ Concurrent Socket Programming</strong>
+                    <span style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.4; display: block;">
+                        The Port Scanner uses Python's <code>socket</code> library and <code>concurrent.futures</code> thread pools to scan hundreds of ports concurrently with service fingerprinting.
+                    </span>
+                </div>
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
+                    <strong style="color: #fff; display: block; margin-bottom: 6px;">📡 Raw Packet Analysis</strong>
+                    <span style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.4; display: block;">
+                        Integrates <code>Scapy</code> to sniff raw network interfaces, dissect OSI layer layers (IP/TCP/UDP/Raw), and decode packet payloads for inspection.
+                    </span>
+                </div>
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
+                    <strong style="color: #fff; display: block; margin-bottom: 6px;">🔒 Session &amp; Credential Security</strong>
+                    <span style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.4; display: block;">
+                        Implements custom session token checkers, secure password hashing (SHA-256), route protection decorators, and brute force login lockouts.
+                    </span>
+                </div>
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 16px; border-radius: 8px;">
+                    <strong style="color: #fff; display: block; margin-bottom: 6px;">⚡ Regex Parsing &amp; Heuristics</strong>
+                    <span style="font-size: 0.82rem; color: var(--text-dim); line-height: 1.4; display: block;">
+                        Uses complex regular expressions to search text bodies or crawl HTML responses, extracting and categorizing IPv4/IPv6, TLDs, email hashes, and malware vectors.
+                    </span>
+                </div>
+            </div>
+
+            <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--accent-blue);">System Data Flow</h3>
+            <p style="color: var(--text-dim); line-height: 1.6; font-size: 0.88rem; margin-bottom: 16px;">
+                Argus leverages a decoupled template-view structure. Flask serves dynamic templates populated by custom analytics libraries, while Python daemon threads capture live packet signals.
+            </p>
+            <div style="background: #090d16; border: 1px solid var(--border); padding: 16px; border-radius: 8px; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.5; color: var(--accent);">
+                [Client Browser] &lt;---(HTML/Plotly)---&gt; [Flask app.py Controllers]<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;+-------------------------------+-------------------------+<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;| (Telemetry Checks)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| (Forensics / Parsing)&nbsp;&nbsp;&nbsp;| (External Lookup)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;v&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;v&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;v<br>
+                [packet_capture.py]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[log_scanner.py]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[threat_intel.py]<br>
+                (Scapy / Mock Generator)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(pywin32 / Mock Logs)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(AbuseIPDB API Check)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;+---------&gt; [intrusion_monitor.py] (Intrusion Detection Alerts) ------&gt; [SOC Dashboard]
+            </div>
+        </div>
+
+        <!-- Tab 2: Verification Tests -->
+        <div id="tab-test" class="guide-tab" style="display: none;">
+            <h2 style="font-size: 1.2rem; margin-bottom: 16px; color: var(--accent);">Verification Scenarios</h2>
+            <p style="color: var(--text-dim); line-height: 1.6; margin-bottom: 20px;">
+                Test cases to quickly verify the capabilities of the platform:
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div>
+                    <strong style="color: var(--accent-orange); display: block; margin-bottom: 8px;">1. IoC Extractor Check</strong>
+                    <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 8px;">
+                        Navigate to the **IoC Extractor** tool and paste the following snippet in the content field. Argus will parse MD5/SHA256 hashes, IP addresses, domains, and signatures, then grade the threat level:
+                    </p>
+                    <div style="position: relative;">
+                        <textarea readonly style="width: 100%; min-height: 100px; font-family: var(--font-mono); font-size: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: #94a3b8; padding: 10px; border-radius: 6px;" id="sample-ioc">WARNING: Suspicious network telemetry detected from IP: 203.0.113.99.
+Indicators match Emotet malware family behavior.
+Payload downloaded signature SHA-256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.
+Host connecting to domains: malicious-site.tk, exploit-feed.ml.</textarea>
+                    </div>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border);">
+
+                <div>
+                    <strong style="color: var(--accent-orange); display: block; margin-bottom: 8px;">2. IP Reputation Audit</strong>
+                    <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 8px;">
+                        Navigate to **Threat Intel** and enter one of these IPs to check local blacklist integration and AbuseIPDB response formats:
+                    </p>
+                    <ul style="margin-left: 20px; font-size: 0.85rem; color: var(--text-dim); line-height: 1.6;">
+                        <li><code>185.220.101.0</code> (Triggers Local Blacklist Match: <i>Tor Exit Node</i>)</li>
+                        <li><code>91.108.4.0</code> (Triggers Local Blacklist Match: <i>Known botnet C2</i>)</li>
+                        <li><code>8.8.8.8</code> (Triggers Google DNS lookup - Clean status)</li>
+                    </ul>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border);">
+
+                <div>
+                    <strong style="color: var(--accent-orange); display: block; margin-bottom: 8px;">3. Credential auditor Policy Test</strong>
+                    <p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 8px;">
+                        Navigate to **Credential Auditor** and input passwords to verify strength evaluation:
+                    </p>
+                    <ul style="margin-left: 20px; font-size: 0.85rem; color: var(--text-dim); line-height: 1.6;">
+                        <li><code>admin123</code> (Triggers **WEAK** rating - fails policy checks)</li>
+                        <li><code>Argus#Sec!Ops2026</code> (Triggers **STRONG** rating - passes complexity filters)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Simulation Details -->
+        <div id="tab-sim" class="guide-tab" style="display: none;">
+            <h2 style="font-size: 1.2rem; margin-bottom: 16px; color: var(--accent);">Autonomous Simulation Engine</h2>
+            <p style="color: var(--text-dim); line-height: 1.6; margin-bottom: 16px;">
+                When Argus is hosted inside cloud containers (such as **Hugging Face Spaces**), low-level system hooks are restricted:
+            </p>
+            <ul style="margin-left: 20px; font-size: 0.88rem; color: var(--text-dim); line-height: 1.6; margin-bottom: 24px;">
+                <li>The Windows Event Log parser raises dependency errors because the container is running Linux.</li>
+                <li>Raw packet sniffing using <code>Scapy</code> raises permission errors because cloud nodes block root privilege access.</li>
+            </ul>
+
+            <div style="background: rgba(251,146,60,0.06); border-left: 4px solid var(--accent-orange); padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
+                <strong style="color: var(--accent-orange); display: block; margin-bottom: 4px;">How Argus Solves This:</strong>
+                <span style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; display: block;">
+                    Argus includes a **real-time simulation loop**. When starting a packet capture or scanning logs, if the backend detects that low-level access is unavailable, it automatically launches background daemon threads to generate realistic security telemetry. This guarantees that charts, timelines, feeds, and alert notifications remain 100% operational for reviewers.
+                </span>
+            </div>
+
+            <p style="color: var(--text-dim); line-height: 1.6; font-size: 0.88rem;">
+                A status badge indicating <span class="mode-badge mode-sim" style="font-size: 0.65rem; padding: 2px 6px;">Simulation</span> or <span class="mode-badge mode-live" style="font-size: 0.65rem; padding: 2px 6px;">Live SOC</span> is displayed at the top of the navigation bar to inform the user of the system's operational status.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showTab(tabId) {
+        // Hide all tabs
+        const tabs = document.querySelectorAll('.guide-tab');
+        tabs.forEach(tab => tab.style.display = 'none');
+
+        // Show target tab
+        document.getElementById('tab-' + tabId).style.display = 'block';
+
+        // Reset button states
+        const buttons = [
+            {id: 'tab-skills-btn', key: 'skills'},
+            {id: 'tab-test-btn', key: 'test'},
+            {id: 'tab-sim-btn', key: 'sim'}
+        ];
+
+        buttons.forEach(btnInfo => {
+            const btn = document.getElementById(btnInfo.id);
+            if (btnInfo.key === tabId) {
+                btn.classList.remove('secondary');
+            } else {
+                btn.classList.add('secondary');
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARGUS — {{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        function showSecurityAlert(msg, user, count) {
+            const container = document.getElementById('alert-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'alert-toast';
+            const time = new Date().toLocaleTimeString();
+            toast.innerHTML = `
+                <b>⚠️ Intrusion Detected</b>
+                <span>${msg}</span><br>
+                <small style="color:var(--text-dim)">User: <b>${user}</b> | Failures: <b>${count}/5</b></small>
+                <span class="time">${time}</span>
+            `;
+            container.appendChild(toast);
+            
+            // Auto remove toast
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(-120%)';
+                toast.style.transition = 'all 0.5s ease';
+                setTimeout(() => toast.remove(), 500);
+            }, 8000);
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <a href="/" class="logo">ARGUS<span>.</span></a>
+            {% if is_simulation %}
+                <span class="mode-badge mode-sim" title="Running in simulated mode (no Admin/Windows dependencies found)">Simulation</span>
+            {% else %}
+                <span class="mode-badge mode-live" title="Connected to local systems live">Live SOC</span>
+            {% endif %}
+        </div>
+        <nav>
+            <a href="/" {% if active=='landing' %}class="on"{% endif %}>HOME</a>
+            {% if current_user %}
+                <a href="/dashboard" {% if active=='dashboard' %}class="on"{% endif %}>DASHBOARD</a>
+                <a href="/tools" {% if active=='tools' %}class="on"{% endif %}>TOOLS</a>
+                <a href="/alerts" {% if active=='alerts' %}class="on"{% endif %}>ALERTS</a>
+                <a href="/guide" {% if active=='guide' %}class="on"{% endif %}>USER GUIDE</a>
+                <a href="/logout" class="logout">LOGOUT ({{ current_user }})</a>
+            {% else %}
+                <a href="/guide" {% if active=='guide' %}class="on"{% endif %}>USER GUIDE</a>
+                <a href="/login" {% if active=='login' %}class="on"{% endif %}>ACCESS TERMINAL</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        {% block body %}{% endblock %}
+    </main>
+
+    <div id="alert-container"></div>
+</body>
+</html>

@@ -36,7 +36,7 @@ Contact: incidents@example.com
 def test_integration():
     """Test extractor integration with threat intelligence."""
     print("\n" + "="*70)
-    print("INTEGRATION TEST: Threat Extractor → Threat Intelligence")
+    print("INTEGRATION TEST: Threat Extractor -> Threat Intelligence")
     print("="*70 + "\n")
 
     # Step 1: Extract indicators
@@ -44,13 +44,13 @@ def test_integration():
     result = extract(SCRAPED_CONTENT)
 
     if result.get("error"):
-        print(f"    ❌ Error: {result['error']}")
+        print(f"    [ERROR] Error: {result['error']}")
         return False
 
-    print(f"    ✓ Threat Level: {result['stats']['threat_level']}")
-    print(f"    ✓ {result['stats']['ipv4_count']} IPv4 addresses found")
-    print(f"    ✓ {len(result['indicators']['domains']['suspicious'])} suspicious domains found")
-    print(f"    ✓ {result['stats']['malware_families']} malware families identified\n")
+    print(f"    [OK] Threat Level: {result['stats']['threat_level']}")
+    print(f"    [OK] {result['stats']['ipv4_count']} IPv4 addresses found")
+    print(f"    [OK] {len(result['indicators']['domains']['suspicious'])} suspicious domains found")
+    print(f"    [OK] {result['stats']['malware_families']} malware families identified\n")
 
     # Step 2: IP reputation check (can be extended with web_scraper results)
     print("[2] Cross-checking IPs with threat intelligence...")
@@ -59,7 +59,7 @@ def test_integration():
     if ips:
         for ip in ips[:3]:  # Check first 3 IPs
             check_result = check_ip_full(ip)
-            status = "🔴 MALICIOUS" if check_result["is_malicious"] else "🟢 CLEAN"
+            status = "[MALICIOUS]" if check_result["is_malicious"] else "[CLEAN]"
             print(f"    {ip}: {status}")
     else:
         print("    (No public IPs to cross-check)")
@@ -73,13 +73,13 @@ def test_integration():
 
     # Step 4: Show module compatibility
     print("\n[4] Module compatibility check...")
-    print("    ✓ threat_extractor: Extracts IoCs from any content")
-    print("    ✓ web_scraper: Can supply content to extractor")
-    print("    ✓ threat_intel: Cross-validates extracted IPs")
-    print("    ✓ All modules follow same error handling pattern")
-    print("    ✓ All return structured dicts for easy integration")
+    print("    [OK] threat_extractor: Extracts IoCs from any content")
+    print("    [OK] web_scraper: Can supply content to extractor")
+    print("    [OK] threat_intel: Cross-validates extracted IPs")
+    print("    [OK] All modules follow same error handling pattern")
+    print("    [OK] All return structured dicts for easy integration")
 
-    print("\n✓ Integration test passed! System ready for deployment.")
+    print("\n[OK] Integration test passed! System ready for deployment.")
     return True
 
 

@@ -20,13 +20,89 @@ FAIL_EVENT_ID = 4625   # Windows failed login
 SUCCESS_EVENT_ID = 4624  # Windows successful login
 
 
+def generate_mock_auth_logs():
+    """Generates highly realistic mock Windows auth logs for demonstration."""
+    import random
+    from collections import defaultdict
+    from datetime import datetime, timedelta
+    
+    mock_ips = ["185.220.101.5", "45.33.32.156", "203.0.113.99", "198.51.100.7", "109.236.80.12", "88.198.24.11"]
+    mock_users = ["admin", "root", "administrator", "guest", "dbuser", "user1", "test"]
+    
+    events = []
+    ip_fails = defaultdict(int)
+    ip_success = defaultdict(int)
+    
+    now = datetime.now()
+    
+    # Mock a brute force attacker on 185.220.101.5
+    bf_ip = "185.220.101.5"
+    for i in range(12):
+        ts = now - timedelta(minutes=15 - i * 1.2)
+        user = random.choice(mock_users)
+        ip_fails[bf_ip] += 1
+        events.append({
+            "time": ts.strftime("%Y-%m-%d %H:%M:%S"),
+            "type": "FAILED",
+            "user": user,
+            "ip": bf_ip
+        })
+        
+    # Another smaller brute force from 109.236.80.12
+    bf_ip2 = "109.236.80.12"
+    for i in range(4):
+        ts = now - timedelta(hours=2, minutes=20 - i * 2)
+        ip_fails[bf_ip2] += 1
+        events.append({
+            "time": ts.strftime("%Y-%m-%d %H:%M:%S"),
+            "type": "FAILED",
+            "user": "administrator",
+            "ip": bf_ip2
+        })
+        
+    # Generate random normal successes and failures
+    for i in range(50):
+        ts = now - timedelta(minutes=i * 25 + random.randint(1, 15))
+        ip = random.choice(mock_ips)
+        user = random.choice(mock_users)
+        kind = "FAILED" if random.random() < 0.25 else "SUCCESS"
+        
+        if kind == "FAILED":
+            ip_fails[ip] += 1
+        else:
+            ip_success[ip] += 1
+            
+        events.append({
+            "time": ts.strftime("%Y-%m-%d %H:%M:%S"),
+            "type": kind,
+            "user": user,
+            "ip": ip
+        })
+        
+    # Sort events by time descending
+    events.sort(key=lambda x: x["time"], reverse=True)
+    
+    brute_force = [
+        {"ip": ip, "fails": cnt}
+        for ip, cnt in ip_fails.items() if cnt >= 3
+    ]
+    brute_force.sort(key=lambda x: x["fails"], reverse=True)
+    
+    return {
+        "is_simulated": True,
+        "brute_force": brute_force,
+        "suspicious_ips": list(ip_fails.keys()),
+        "ip_fails": dict(ip_fails),
+        "ip_success": dict(ip_success),
+        "events": events[:100],
+        "total_scanned": len(events)
+    }
+
+
 def read_windows_auth_log(hours_back=24, max_events=500):
-    """Read real Windows Security Event Log."""
+    """Read real Windows Security Event Log, fallback to simulation mode on error/non-Windows."""
     if not WIN32_OK:
-        return {
-            "error": "pywin32 not installed. Run: pip install pywin32",
-            "brute_force": [], "suspicious_ips": [], "events": []
-        }
+        return generate_mock_auth_logs()
 
     events = []
     ip_fails = defaultdict(int)
@@ -45,7 +121,6 @@ def read_windows_auth_log(hours_back=24, max_events=500):
             for rec in records:
                 try:
                     ts = rec.TimeGenerated
-                    # pywin32 returns pywintypes.datetime
                     if hasattr(ts, 'year'):
                         dt = datetime(ts.year, ts.month, ts.day,
                                       ts.hour, ts.minute, ts.second)
@@ -78,7 +153,8 @@ def read_windows_auth_log(hours_back=24, max_events=500):
 
         win32evtlog.CloseEventLog(hand)
     except Exception as e:
-        return {"error": str(e), "brute_force": [], "suspicious_ips": [], "events": []}
+        # If open event log fails (e.g. not Administrator on Windows), fallback to simulation
+        return generate_mock_auth_logs()
 
     brute_force = [
         {"ip": ip, "fails": cnt}
@@ -87,6 +163,7 @@ def read_windows_auth_log(hours_back=24, max_events=500):
     brute_force.sort(key=lambda x: x["fails"], reverse=True)
 
     return {
+        "is_simulated": False,
         "brute_force": brute_force,
         "suspicious_ips": list(ip_fails.keys()),
         "ip_fails": dict(ip_fails),

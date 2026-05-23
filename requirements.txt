@@ -1,6 +1,7 @@
 flask>=2.0
 scapy>=2.5
-pywin32>=306
+pywin32>=306; sys_platform == 'win32'
 requests>=2.25
 beautifulsoup4>=4.9
 plotly>=5.0
+gunicorn>=20.0; sys_platform != 'win32'

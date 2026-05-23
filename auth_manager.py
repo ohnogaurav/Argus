@@ -26,6 +26,12 @@ USERS = {
 # Active sessions: token -> {user, created_at, last_access}
 SESSIONS = {}
 
+# Security Tracking
+FAILED_ATTEMPTS = {}  # user -> {count, last_fail, ip}
+LOCKED_USERS = {}     # user -> lock_until_dt
+LOCK_DURATION_MINS = 15
+MAX_FAILED_ATTEMPTS = 5
+
 
 def hash_password(password: str) -> str:
     """Hash password using SHA256."""
@@ -60,16 +66,63 @@ def create_user(username: str, password: str) -> dict:
     return {"success": True, "user": username}
 
 
-def login_user(username: str, password: str) -> dict:
+def is_user_locked(username: str) -> Optional[datetime]:
+    """Check if user is currently locked. Returns unlock time or None."""
+    if username in LOCKED_USERS:
+        unlock_time = LOCKED_USERS[username]
+        if datetime.now() < unlock_time:
+            return unlock_time
+        else:
+            del LOCKED_USERS[username]
+    return None
+
+
+def login_user(username: str, password: str, ip: str = "unknown") -> dict:
     """
     Authenticate user. Returns {"success": bool, "error": str, "token": str, "user": username}.
     """
+    # Check if locked
+    unlock_time = is_user_locked(username)
+    if unlock_time:
+        wait_secs = int((unlock_time - datetime.now()).total_seconds())
+        return {
+            "success": False, 
+            "error": f"Account locked due to multiple failed attempts. Try again in {wait_secs}s.",
+            "locked": True,
+            "unlock_at": unlock_time.isoformat()
+        }
+
     if username not in USERS:
         return {"success": False, "error": "Invalid username or password"}
 
     user_data = USERS[username]
     if not verify_password(password, user_data["password_hash"]):
-        return {"success": False, "error": "Invalid username or password"}
+        # Track failure
+        fail_data = FAILED_ATTEMPTS.get(username, {"count": 0})
+        fail_data["count"] += 1
+        fail_data["last_fail"] = datetime.now()
+        fail_data["ip"] = ip
+        FAILED_ATTEMPTS[username] = fail_data
+
+        # Lock if too many attempts
+        if fail_data["count"] >= MAX_FAILED_ATTEMPTS:
+            LOCKED_USERS[username] = datetime.now() + timedelta(minutes=LOCK_DURATION_MINS)
+            return {
+                "success": False, 
+                "error": "Account locked! Too many failed attempts.",
+                "locked": True,
+                "count": fail_data["count"]
+            }
+
+        return {
+            "success": False, 
+            "error": "Invalid username or password",
+            "count": fail_data["count"]
+        }
+
+    # Success: reset failures
+    if username in FAILED_ATTEMPTS:
+        del FAILED_ATTEMPTS[username]
 
     token = generate_session_token()
     SESSIONS[token] = {

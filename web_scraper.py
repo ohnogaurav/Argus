@@ -221,14 +221,140 @@ def scrape(url: str, tag_hints: list = None) -> dict:
     return result
 
 
+MOCK_FEED_DATA = {
+    "thehackernews": {
+        "source_name": "The Hacker News",
+        "source_icon": "📰",
+        "headlines": [
+            "New Ransomware Campaign Targets Health Sector Using Zero-Day Exploits",
+            "Critical Apache Struts RCE Vulnerability Under Active Exploitation",
+            "Highly Sophisticated APT Actor Mimikatz Payload Unveiled in Cyber Attack",
+            "Security Warning: Massive Credential Stuffing Attack Against Web Interfaces",
+            "Zero-Day Exploit Found in Popular Windows Active Directory Services",
+            "Defenders Alerted to New TrickBot and Emotet Delivery Frameworks",
+            "Malicious Package Identified in Popular Python Open-Source Registry"
+        ],
+        "flagged_headlines": [
+            {"headline": "New Ransomware Campaign Targets Health Sector Using Zero-Day Exploits", "keywords": ["ransomware", "exploit"]},
+            {"headline": "Critical Apache Struts RCE Vulnerability Under Active Exploitation", "keywords": ["critical", "vulnerability"]},
+            {"headline": "Highly Sophisticated APT Actor Mimikatz Payload Unveiled in Cyber Attack", "keywords": ["APT", "attack"]}
+        ],
+        "threat_sentences": [
+            {"text": "A newly uncovered ransomware campaign is actively utilizing zero-day exploits in order to infiltrate clinical workstations.", "keywords": ["ransomware", "exploit"]},
+            {"text": "Security analysts observed the deployment of a Mimikatz credential dumping payload directly onto local systems.", "keywords": ["mimikatz", "payload"]}
+        ],
+        "ips": ["203.0.113.99", "185.220.101.5", "45.33.32.156"],
+        "keyword_counts": {"ransomware": 5, "exploit": 4, "vulnerability": 3, "critical": 2, "mimikatz": 2, "attack": 6},
+        "stats": {"total_headlines": 7, "threat_headlines": 3, "threat_sentences": 2, "top_keyword": "attack", "total_ips": 3}
+    },
+    "bleepingcomputer": {
+        "source_name": "BleepingComputer",
+        "source_icon": "🖥️",
+        "headlines": [
+            "Bleeping Security: Ransomware Operators Demanding $5M Payment via Tor Nodes",
+            "Critical Patch Released for Severe Windows Print Spooler Privilege Escalation",
+            "Cobalt Strike Beacons Active Across Segmented Retail POS Network Terminals",
+            "New Conti Variant Implements Advanced Anti-Analysis and Evasion Protections",
+            "Phishing Campaign Distributes TrickBot Trojan via Malicious PDF Attachments",
+            "DNS Tunneling Techniques Exploited to Bypass Enterprise Firewall Rules"
+        ],
+        "flagged_headlines": [
+            {"headline": "Bleeping Security: Ransomware Operators Demanding $5M Payment via Tor Nodes", "keywords": ["ransomware"]},
+            {"headline": "Critical Patch Released for Severe Windows Print Spooler Privilege Escalation", "keywords": ["critical", "patch"]},
+            {"headline": "Cobalt Strike Beacons Active Across Segmented Retail POS Network Terminals", "keywords": ["beacon"]}
+        ],
+        "threat_sentences": [
+            {"text": "Security bulletins confirmed that Cobalt Strike beacons were deployed following a successful spear-phishing attack.", "keywords": ["beacon", "phishing"]}
+        ],
+        "ips": ["198.51.100.7", "91.108.4.15", "109.236.80.12"],
+        "keyword_counts": {"ransomware": 3, "critical": 2, "beacon": 2, "patch": 1, "phishing": 2},
+        "stats": {"total_headlines": 6, "threat_headlines": 3, "threat_sentences": 1, "top_keyword": "ransomware", "total_ips": 3}
+    },
+    "cisa_news": {
+        "source_name": "CISA Alerts",
+        "source_icon": "🏛️",
+        "headlines": [
+            "CISA Releases Warning: Russian APT Groups Exploiting Known CVE Vulnerability",
+            "AA26-055A: Joint Cybersecurity Advisory on Log4Shell Mitigation Measures",
+            "Binding Operational Directive issued for Zero-Day Vulnerability Patching",
+            "Malware Alert: Evasion Frameworks Deploying ReVil Backdoors on Critical Infra",
+            "Vulnerability Update: CISA Catalog Adds 12 New Known Exploited Weaknesses"
+        ],
+        "flagged_headlines": [
+            {"headline": "CISA Releases Warning: Russian APT Groups Exploiting Known CVE Vulnerability", "keywords": ["APT", "vulnerability"]},
+            {"headline": "AA26-055A: Joint Cybersecurity Advisory on Log4Shell Mitigation Measures", "keywords": ["vulnerability"]},
+            {"headline": "Malware Alert: Evasion Frameworks Deploying ReVil Backdoors on Critical Infra", "keywords": ["malware", "backdoor"]}
+        ],
+        "threat_sentences": [
+            {"text": "CISA urges security administrators to apply immediate security patches to remediate active Log4Shell vulnerabilities.", "keywords": ["vulnerability", "patch"]}
+        ],
+        "ips": ["88.198.24.11", "203.0.113.111"],
+        "keyword_counts": {"vulnerability": 4, "APT": 2, "patch": 1, "malware": 2, "backdoor": 1},
+        "stats": {"total_headlines": 5, "threat_headlines": 3, "threat_sentences": 1, "top_keyword": "vulnerability", "total_ips": 2}
+    },
+    "darkreading": {
+        "source_name": "Dark Reading",
+        "source_icon": "🌑",
+        "headlines": [
+            "Critical Flaws in Core Hypervisors Open Enterprise Networks to Compromise",
+            "Supply Chain Breaches Triple: Security Teams Urged to Review Vendor Access",
+            "New Ransomware Actors Embellish Steal-and-Encrypt Threats with DDoS Claims",
+            "Zero-Day Exploit in Enterprise Endpoint Agents Triggers Global Mitigation Campaign"
+        ],
+        "flagged_headlines": [
+            {"headline": "Critical Flaws in Core Hypervisors Open Enterprise Networks to Compromise", "keywords": ["critical", "compromise"]},
+            {"headline": "New Ransomware Actors Embellish Steal-and-Encrypt Threats with DDoS Claims", "keywords": ["ransomware"]}
+        ],
+        "threat_sentences": [
+            {"text": "Attackers are increasingly utilizing supply chain vectors to bypass edge perimeter defenses.", "keywords": ["attack"]}
+        ],
+        "ips": ["45.33.32.156"],
+        "keyword_counts": {"critical": 1, "compromise": 1, "ransomware": 1, "attack": 2},
+        "stats": {"total_headlines": 4, "threat_headlines": 2, "threat_sentences": 1, "top_keyword": "attack", "total_ips": 1}
+    },
+    "securityweek": {
+        "source_name": "SecurityWeek",
+        "source_icon": "🔐",
+        "headlines": [
+            "Active Zero-Day Attacks Force Microsoft to Issue Out-of-Band Security Patches",
+            "Conti Ransomware Source Code Leak Reveals Custom Intrusion Playbooks",
+            "CISA Adds Apache Struts RCE and Windows Spooler Flaws to Known Exploited List",
+            "Cybersecurity Experts Expose New Evasion Techniques Used by SolarWinds Actors"
+        ],
+        "flagged_headlines": [
+            {"headline": "Active Zero-Day Attacks Force Microsoft to Issue Out-of-Band Security Patches", "keywords": ["attack", "patch"]},
+            {"headline": "Conti Ransomware Source Code Leak Reveals Custom Intrusion Playbooks", "keywords": ["ransomware"]}
+        ],
+        "threat_sentences": [
+            {"text": "The release of Conti source code allowed multiple threat groups to compile customized strains.", "keywords": ["ransomware"]}
+        ],
+        "ips": ["185.220.101.5"],
+        "keyword_counts": {"attack": 2, "patch": 1, "ransomware": 2},
+        "stats": {"total_headlines": 4, "threat_headlines": 2, "threat_sentences": 1, "top_keyword": "ransomware", "total_ips": 1}
+    }
+}
+
+
 def scrape_preset(key: str) -> dict:
     src = PRESET_SOURCES.get(key)
     if not src:
         return {"error": f"Unknown preset: {key}"}
-    time.sleep(0.5)  # polite delay
+    time.sleep(0.1)  # brief polite delay
     result = scrape(src["url"], src.get("headline_tags", []))
+    
+    # If scrape failed or returned no headlines, fallback to simulated mock data
+    if result.get("error") or not result.get("headlines"):
+        if key in MOCK_FEED_DATA:
+            mock = MOCK_FEED_DATA[key].copy()
+            mock["url"] = src["url"]
+            mock["scraped_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            mock["error"] = None
+            mock["is_simulated"] = True
+            return mock
+            
     result["source_name"] = src["name"]
     result["source_icon"] = src["icon"]
+    result["is_simulated"] = False
     return result
 
 

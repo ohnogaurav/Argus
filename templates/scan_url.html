@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>🌐 URL Threat Web Scraper</h1>
+<div class="alert alert-info">
+    <strong>Module Purpose:</strong> Enter any public URL. Argus crawls the target page, sanitizes scripts/styles to isolate pure text, and evaluates the text against indicators of compromise (IoCs) and malware signatures.
+</div>
+
+<div class="card">
+    <div class="card-title">Audit Target URL</div>
+    <form method="POST" action="/scan-url">
+        <div class="input-row">
+            <input type="text" name="url" placeholder="https://example.com/incident-report" value="{{ url }}" style="flex-grow: 2; min-width: 250px;" required>
+            <button type="submit">SCAN WEBPAGE</button>
+        </div>
+    </form>
+</div>
+
+{% if result %}
+    {% if result.error %}
+        <div class="alert alert-err">
+            <strong>Crawling Error:</strong> {{ result.error }}
+        </div>
+    {% else %}
+        <div class="stats">
+            <div class="stat-box"><div class="stat-val">{{ result.stats.ipv4_count }}</div><div class="stat-lbl">IPv4 Addresses</div></div>
+            <div class="stat-box"><div class="stat-val">{{ result.stats.domain_count }}</div><div class="stat-lbl">Parsed Domains</div></div>
+            <div class="stat-box"><div class="stat-val red">{{ result.stats.suspicious_domain_count }}</div><div class="stat-lbl">Suspicious TLDs</div></div>
+            <div class="stat-box"><div class="stat-val">{{ result.stats.hash_count }}</div><div class="stat-lbl">File Hashes</div></div>
+            <div class="stat-box"><div class="stat-val orange">{{ result.stats.malware_families }}</div><div class="stat-lbl">Malware Signatures</div></div>
+            <div class="stat-box">
+                <div class="stat-val {% if 'CRITICAL' in result.stats.threat_level %}red{% elif 'HIGH' in result.stats.threat_level %}orange{% else %}green{% endif %}">
+                    {{ result.stats.threat_level }}
+                </div>
+                <div class="stat-lbl">Page Evaluation</div>
+            </div>
+        </div>
+
+        <div class="alert alert-info" style="font-family: var(--font-mono); font-size: 0.82rem;">
+            Successfully crawled and analyzed: <a href="{{ result.source }}" target="_blank" style="color: var(--accent); font-weight:600;">{{ result.source }}</a>
+        </div>
+
+        {% if result.indicators.ipv4 %}
+        <div class="card" style="padding:0; overflow:hidden; margin-bottom: 20px;">
+            <div class="card-title" style="padding: 20px 24px 8px;">Extracted IP Addresses</div>
+            <table>
+                <tbody>
+                    {% for ip in result.indicators.ipv4 %}
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--accent-blue); font-weight: 500;">
+                            {{ ip }}
+                        </td>
+                        <td style="text-align: right; font-size: 0.75rem;">
+                            <a href="/threat?ip={{ ip }}" class="btn secondary" style="padding: 4px 12px; font-size: 0.72rem;">Audit Reputation</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if result.indicators.domains.clean or result.indicators.domains.suspicious %}
+        <div class="card" style="padding:0; overflow:hidden; margin-bottom: 20px;">
+            <div class="card-title" style="padding: 20px 24px 8px;">Extracted Hostnames & Domains</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Domain / Host</th>
+                        <th>Classification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for domain, reason in result.indicators.domains.suspicious.items() %}
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--accent-orange); font-weight: 600;">{{ domain }}</td>
+                        <td><span class="badge badge-yellow">⚠️ {{ reason }}</span></td>
+                    </tr>
+                    {% endfor %}
+                    {% for domain, reason in result.indicators.domains.clean.items() %}
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--text-dim);">{{ domain }}</td>
+                        <td><span class="badge badge-green">{{ reason }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if result.indicators.hashes.md5 or result.indicators.hashes.sha1 or result.indicators.hashes.sha256 %}
+        <div class="card" style="padding:0; overflow:hidden; margin-bottom: 20px;">
+            <div class="card-title" style="padding: 20px 24px 8px;">Extracted File Hashes</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 150px;">Hash Algorithm</th>
+                        <th>Hash Payload String</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in result.indicators.hashes.sha256 %}
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--text-dark); font-size: 0.78rem;">SHA-256</td>
+                        <td style="font-family: var(--font-mono); color: var(--accent); font-size: 0.78rem; word-break: break-all;">{{ h }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% for h in result.indicators.hashes.sha1 %}
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--text-dark); font-size: 0.78rem;">SHA-1</td>
+                        <td style="font-family: var(--font-mono); color: var(--accent); font-size: 0.78rem; word-break: break-all;">{{ h }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% for h in result.indicators.hashes.md5 %}
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--text-dark); font-size: 0.78rem;">MD5</td>
+                        <td style="font-family: var(--font-mono); color: var(--accent); font-size: 0.78rem; word-break: break-all;">{{ h }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if result.indicators.malware_families %}
+        <div class="card" style="padding:0; overflow:hidden;">
+            <div class="card-title" style="padding: 20px 24px 8px;">Identified Malware Signatures</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Signature Family</th>
+                        <th>Mentions Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for malware, count in result.indicators.malware_families.items() %}
+                    <tr>
+                        <td style="font-family: var(--font-sans); font-weight: 600; color: var(--accent-red); font-size: 0.9rem;">
+                            {{ malware|upper }}
+                        </td>
+                        <td style="font-family: var(--font-mono); color: #fff; font-weight: 600;">
+                            {{ count }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    {% endif %}
+{% endif %}
+{% endblock %}

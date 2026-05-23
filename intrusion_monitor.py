@@ -27,6 +27,7 @@ PATTERNS = {
     "port_scan": {"threshold": 20, "window": 60, "severity": SEVERITY_HIGH},
     "credential_reuse": {"threshold": 5, "window": 3600, "severity": SEVERITY_MEDIUM},
     "suspicious_payload": {"threshold": 5, "window": 300, "severity": SEVERITY_MEDIUM},
+    "auth_failure": {"threshold": 1, "window": 60, "severity": SEVERITY_MEDIUM},
 }
 
 # ── STATE ───────────────────────────────────────────────────────────────

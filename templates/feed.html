@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>📰 Threat Intelligence News Feed</h1>
+<div class="alert alert-info">
+    <strong>Module Purpose:</strong> Real-time scraping and keyword filtering of major threat advisory feeds. Selecting a provider launches an ethical, rate-limited scrape to identify active malware keywords and exposed external IP indicators.
+</div>
+
+<div style="display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;">
+    {% for key, src in sources.items() %}
+        <a href="/feed?source={{ key }}" class="btn {% if active_source != key %}secondary{% endif %}" style="font-size: 0.82rem;">
+            {{ src.icon }} {{ src.name }}
+        </a>
+    {% endfor %}
+</div>
+
+{% if feed_data %}
+    {% if feed_data.error %}
+        <div class="alert alert-err">
+            <strong>Fetch Failed:</strong> {{ feed_data.error }}
+        </div>
+    {% else %}
+        <div class="stats">
+            <div class="stat-box"><div class="stat-val">{{ feed_data.stats.total_headlines }}</div><div class="stat-lbl">Headlines Scraped</div></div>
+            <div class="stat-box"><div class="stat-val red">{{ feed_data.stats.threat_headlines }}</div><div class="stat-lbl">Threat Flags</div></div>
+            <div class="stat-box"><div class="stat-val orange">{{ feed_data.stats.threat_sentences }}</div><div class="stat-lbl">Threat Contexts</div></div>
+            <div class="stat-box"><div class="stat-val" style="color: var(--accent);">{{ feed_data.stats.top_keyword }}</div><div class="stat-lbl">Top Keyword Alert</div></div>
+            <div class="stat-box"><div class="stat-val blue">{{ feed_data.stats.total_ips }}</div><div class="stat-lbl">IP IoCs Found</div></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start;">
+            
+            <!-- Left Panel: Headlines and context -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div class="card-title" style="padding: 20px 24px 8px;">Scraped Articles & Headlines</div>
+                    <div style="max-height: 480px; overflow-y: auto;">
+                        <table>
+                            <tbody>
+                                {% for headline in feed_data.headlines %}
+                                <tr>
+                                    <td style="line-height: 1.5; font-size: 0.88rem; padding: 16px 20px;">
+                                        {{ headline }}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-dark); padding: 30px;">
+                                        No headlines retrieved.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {% if feed_data.threat_sentences %}
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div class="card-title" style="padding: 20px 24px 8px;">Threat Context Matches</div>
+                    <div style="max-height: 480px; overflow-y: auto;">
+                        <table>
+                            <tbody>
+                                {% for sentence in feed_data.threat_sentences %}
+                                <tr>
+                                    <td style="padding: 16px 20px; line-height: 1.5;">
+                                        <p style="font-size: 0.85rem; margin-bottom: 8px; color: var(--text);">
+                                            "{{ sentence.text }}"
+                                        </p>
+                                        <div style="display:flex; gap: 6px; flex-wrap: wrap;">
+                                            {% for kw in sentence.keywords %}
+                                                <span class="badge badge-red" style="font-size: 0.62rem; padding: 2px 6px;">{{ kw }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Right Panel: Keywords and IP IoCs -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div class="card-title" style="padding: 20px 24px 8px;">Keyword Frequency</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Keyword</th>
+                                <th>Occurrences</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for word, count in feed_data.keyword_counts.items() %}
+                            <tr>
+                                <td style="font-weight: 600; color: var(--accent-orange);">{{ word }}</td>
+                                <td style="font-family: var(--font-mono); color: #fff; font-weight: 500;">{{ count }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" style="text-align: center; color: var(--text-dark); padding: 20px;">
+                                    No keywords matched.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div class="card-title" style="padding: 20px 24px 8px;">Scraped IP IoCs</div>
+                    <table>
+                        <tbody>
+                            {% for ip in feed_data.ips %}
+                            <tr>
+                                <td style="font-family: var(--font-mono); color: var(--accent-red); font-weight: 600; padding: 12px 20px;">
+                                    {{ ip }}
+                                </td>
+                                <td style="text-align: right; padding: 12px 20px;">
+                                    <a href="/threat?ip={{ ip }}" class="btn secondary" style="padding: 3px 10px; font-size: 0.68rem;">Audit</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" style="text-align: center; color: var(--text-dark); padding: 30px; font-family: var(--font-mono); font-size: 0.8rem;">
+                                    No IP IoCs identified on page.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock %}

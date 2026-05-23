@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block body %}
+<div style="max-width: 420px; margin: 60px auto;">
+    <div class="card">
+        <div class="card-title">User Authentication</div>
+        
+        {% if error %}
+            <div class="alert alert-err">
+                <strong>Error:</strong> {{ error }}
+            </div>
+        {% endif %}
+        
+        <form method="POST" action="/login">
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-dim);">USERNAME</label>
+                <input type="text" name="username" placeholder="admin" required style="width: 100%;">
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-dim);">PASSWORD</label>
+                <input type="password" name="password" placeholder="••••••••" required style="width: 100%;">
+            </div>
+            
+            <button type="submit" style="width: 100%; padding: 12px; margin-bottom: 16px;">LOG IN</button>
+        </form>
+        
+        <div style="text-align: center; font-size: 0.8rem; color: var(--text-dim);">
+            Need an account? <a href="/register" style="color: var(--accent); text-decoration: none; font-weight: 600;">Register here</a>
+        </div>
+    </div>
+    
+    {% if fail_data %}
+        <script>
+            showSecurityAlert("{{ fail_data.msg }}", "{{ fail_data.user }}", {{ fail_data.count }});
+        </script>
+    {% endif %}
+    
+    <div style="text-align: center; font-size: 0.78rem; color: var(--text-dark); background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+        Demo Credentials:<br>
+        Username: <strong style="color: var(--accent);">admin</strong> | Password: <strong style="color: var(--accent);">admin@123</strong>
+    </div>
+</div>
+{% endblock %}

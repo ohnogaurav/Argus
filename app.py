@@ -1,1005 +1,137 @@
 """
-CyberCrime Investigation System — Real Data Edition
-Windows + Admin required for full features.
+Argus — Advanced Security Operations & Network Telemetry Console
 """
 
-from flask import Flask, render_template_string, request, jsonify
-import json
+import os
+from flask import Flask, render_template, request, jsonify, redirect, make_response
+from auth_manager import require_login, login_user, create_user
 
 app = Flask(__name__)
 
-# ── HTML BASE ──────────────────────────────────────────────────────────
-BASE = r"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CYBER OPS — {{ title }}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#03070d;--panel:#070f1a;--panel2:#0a1525;
-  --border:#0e2d4a;--border2:#1a4a6e;
-  --accent:#00e5ff;--accent2:#ff1744;--accent3:#ffab00;--accent4:#00e676;
-  --text:#b0d4ee;--dim:#2e5f80;--dimmer:#1a3a55;
-}
-html{scroll-behavior:smooth}
-body{
-  background:var(--bg);color:var(--text);
-  font-family:'Share Tech Mono',monospace;
-  min-height:100vh;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 10% 40%,rgba(0,229,255,.05) 0%,transparent 70%),
-    radial-gradient(ellipse 60% 40% at 90% 20%,rgba(255,23,68,.04) 0%,transparent 70%),
-    repeating-linear-gradient(0deg,transparent,transparent 47px,rgba(0,229,255,.025) 47px,rgba(0,229,255,.025) 48px),
-    repeating-linear-gradient(90deg,transparent,transparent 47px,rgba(0,229,255,.015) 47px,rgba(0,229,255,.015) 48px);
-}
+# --- GLOBAL TEMPLATE VARIABLES ---
+def is_simulation_mode():
+    """Check if the system is running in simulated mode due to missing system/OS privileges."""
+    from log_scanner import WIN32_OK
+    from packet_capture import SCAPY_OK
+    return not (WIN32_OK and SCAPY_OK)
 
-/* ── HEADER ── */
-header{
-  position:sticky;top:0;z-index:100;
-  background:rgba(3,7,13,.96);
-  border-bottom:1px solid var(--border);
-  backdrop-filter:blur(8px);
-  display:flex;align-items:center;gap:14px;
-  padding:14px 28px;
-}
-.logo{
-  font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:900;
-  color:var(--accent);letter-spacing:3px;
-  text-shadow:0 0 16px rgba(0,229,255,.6);
-  white-space:nowrap;
-}
-.logo span{color:var(--accent2);text-shadow:0 0 12px rgba(255,23,68,.6)}
-.live-badge{
-  font-size:.58rem;background:var(--accent2);color:#fff;
-  padding:2px 8px;border-radius:2px;letter-spacing:1px;font-weight:700;
-  animation:pulse 1.2s infinite;
-}
-@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 6px var(--accent2)}50%{opacity:.5;box-shadow:none}}
-nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-nav a{
-  color:var(--dim);text-decoration:none;font-size:.72rem;
-  padding:5px 12px;border:1px solid var(--border);border-radius:2px;
-  letter-spacing:1px;transition:all .2s;
-}
-nav a:hover,nav a.on{
-  color:var(--accent);border-color:var(--accent);
-  text-shadow:0 0 8px var(--accent);
-  box-shadow:0 0 12px rgba(0,229,255,.15);
-}
+@app.context_processor
+def inject_global_vars():
+    """Inject current session user and system simulation mode status to all templates."""
+    from auth_manager import get_current_user
+    user = get_current_user(request)
+    return {
+        "current_user": user,
+        "is_simulation": is_simulation_mode()
+    }
 
-/* ── MAIN ── */
-main{max-width:1100px;margin:36px auto;padding:0 20px 80px}
-h1{
-  font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700;
-  color:var(--accent);letter-spacing:3px;
-  text-shadow:0 0 18px rgba(0,229,255,.5);
-  margin-bottom:24px;padding-bottom:12px;
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:12px;
-}
+# --- ROUTES ---
 
-/* ── CARDS ── */
-.card{
-  background:var(--panel);border:1px solid var(--border);
-  border-radius:3px;padding:22px;margin-bottom:18px;
-  position:relative;overflow:hidden;
-}
-.card::after{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent 0%,var(--accent) 50%,transparent 100%);
-  opacity:.5;
-}
-.card-title{
-  font-family:'Orbitron',sans-serif;font-size:.65rem;
-  color:var(--dim);letter-spacing:2px;margin-bottom:16px;
-  display:flex;align-items:center;gap:10px;
-}
-
-/* ── TABLES ── */
-table{width:100%;border-collapse:collapse;font-size:.78rem}
-th{text-align:left;color:var(--dim);padding:7px 12px;
-   border-bottom:1px solid var(--border);font-size:.65rem;letter-spacing:1px}
-td{padding:8px 12px;border-bottom:1px solid rgba(14,45,74,.6);vertical-align:top;word-break:break-all}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(0,229,255,.03)}
-
-/* ── STATUS COLORS ── */
-.red{color:var(--accent2)}
-.green{color:var(--accent4)}
-.yellow{color:var(--accent3)}
-.blue{color:var(--accent)}
-.dim{color:var(--dim)}
-
-/* ── BADGES ── */
-.badge{display:inline-block;padding:2px 8px;border-radius:2px;font-size:.7rem;font-weight:700}
-.badge-red{background:rgba(255,23,68,.15);color:var(--accent2);border:1px solid rgba(255,23,68,.4)}
-.badge-green{background:rgba(0,230,118,.1);color:var(--accent4);border:1px solid rgba(0,230,118,.3)}
-.badge-yellow{background:rgba(255,171,0,.1);color:var(--accent3);border:1px solid rgba(255,171,0,.3)}
-.badge-blue{background:rgba(0,229,255,.08);color:var(--accent);border:1px solid rgba(0,229,255,.3)}
-
-/* ── STATS ROW ── */
-.stats{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
-.stat-box{
-  background:var(--panel2);border:1px solid var(--border);
-  border-radius:3px;padding:14px 20px;flex:1;min-width:120px;
-}
-.stat-val{font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:700;color:var(--accent)}
-.stat-val.red{color:var(--accent2)}
-.stat-val.green{color:var(--accent4)}
-.stat-val.yellow{color:var(--accent3)}
-.stat-lbl{font-size:.62rem;color:var(--dim);letter-spacing:1px;margin-top:4px}
-
-/* ── FORMS ── */
-.input-row{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
-input[type=text],input[type=number],select{
-  background:var(--panel2);border:1px solid var(--border2);
-  color:var(--text);font-family:'Share Tech Mono',monospace;
-  font-size:.8rem;padding:8px 14px;border-radius:2px;outline:none;
-}
-input[type=text]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 8px rgba(0,229,255,.2)}
-button,a.btn{
-  background:transparent;border:1px solid var(--accent);
-  color:var(--accent);font-family:'Share Tech Mono',monospace;
-  font-size:.78rem;padding:8px 20px;border-radius:2px;
-  cursor:pointer;letter-spacing:1px;transition:all .2s;text-decoration:none;display:inline-block;
-}
-button:hover,a.btn:hover{background:rgba(0,229,255,.1);box-shadow:0 0 14px rgba(0,229,255,.2)}
-button.danger{border-color:var(--accent2);color:var(--accent2)}
-button.danger:hover{background:rgba(255,23,68,.1)}
-
-/* ── HOME GRID ── */
-.hero{text-align:center;padding:50px 0 30px}
-.hero-title{
-  font-family:'Orbitron',sans-serif;font-size:2.2rem;font-weight:900;
-  color:var(--accent);letter-spacing:6px;
-  text-shadow:0 0 30px rgba(0,229,255,.6),0 0 60px rgba(0,229,255,.2);
-  margin-bottom:8px;
-}
-.hero-sub{color:var(--dim);font-size:.78rem;letter-spacing:3px;margin-bottom:50px}
-.menu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;max-width:800px;margin:0 auto}
-.menu-card{
-  display:block;text-decoration:none;
-  background:var(--panel);border:1px solid var(--border);
-  border-radius:3px;padding:28px 20px;text-align:center;
-  transition:all .25s;position:relative;overflow:hidden;
-}
-.menu-card::before{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,var(--accent),transparent);
-  transform:scaleX(0);transition:transform .3s;
-}
-.menu-card:hover{border-color:var(--accent);transform:translateY(-3px);
-  box-shadow:0 8px 30px rgba(0,229,255,.1)}
-.menu-card:hover::before{transform:scaleX(1)}
-.menu-icon{font-size:2rem;margin-bottom:12px;display:block}
-.menu-label{font-family:'Orbitron',sans-serif;font-size:.7rem;color:var(--accent);letter-spacing:2px}
-.menu-desc{font-size:.7rem;color:var(--dim);margin-top:8px;line-height:1.5}
-.menu-real{font-size:.6rem;color:var(--accent4);letter-spacing:1px;margin-top:6px}
-
-/* ── PACKET FEED ── */
-.pkt-row{font-size:.72rem;padding:6px 10px;border-bottom:1px solid var(--border);
-  display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
-.pkt-row:hover{background:rgba(0,229,255,.03)}
-.pkt-time{color:var(--dim);white-space:nowrap;min-width:70px}
-.pkt-ip{color:var(--accent);white-space:nowrap}
-.pkt-payload{color:var(--dimmer);flex:1;word-break:break-all;font-size:.68rem}
-.pkt-flagged{border-left:2px solid var(--accent2);background:rgba(255,23,68,.04)}
-
-/* ── SCORE BAR ── */
-.score-bar{background:var(--panel2);border-radius:2px;height:6px;margin-top:4px;overflow:hidden}
-.score-fill{height:100%;border-radius:2px;transition:width .5s}
-
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-
-/* ── ALERT ── */
-.alert{padding:12px 16px;border-radius:2px;margin-bottom:16px;font-size:.8rem;border-left:3px solid}
-.alert-warn{background:rgba(255,171,0,.08);border-color:var(--accent3);color:var(--accent3)}
-.alert-info{background:rgba(0,229,255,.06);border-color:var(--accent);color:var(--accent)}
-.alert-err{background:rgba(255,23,68,.08);border-color:var(--accent2);color:var(--accent2)}
-
-.spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);
-  border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-</style>
-</head>
-<body>
-<header>
-  <div class="logo">CYBER<span>OPS</span></div>
-  <span class="live-badge">LIVE</span>
-  <nav>
-    <a href="/" {% if active=='home' %}class="on"{% endif %}>HOME</a>
-    <a href="/login" {% if active=='login' %}class="on"{% endif %}>LOGIN</a>
-    <a href="/dashboard" {% if active=='dashboard' %}class="on"{% endif %}>DASHBOARD</a>
-    <a href="/log" {% if active=='log' %}class="on"{% endif %}>AUTH LOG</a>
-    <a href="/scan" {% if active=='scan' %}class="on"{% endif %}>PORT SCAN</a>
-    <a href="/packet" {% if active=='packet' %}class="on"{% endif %}>PACKETS</a>
-    <a href="/threat" {% if active=='threat' %}class="on"{% endif %}>THREAT INTEL</a>
-    <a href="/extract" {% if active=='extract' %}class="on"{% endif %}>IOC EXTRACT</a>
-    <a href="/scan-url" {% if active=='scan-url' %}class="on"{% endif %}>SCAN URL</a>
-    <a href="/alerts" {% if active=='alerts' %}class="on"{% endif %}>ALERTS</a>
-    <a href="/audit-pwd" {% if active=='audit-pwd' %}class="on"{% endif %}>PWD AUDIT</a>
-  </nav>
-</header>
-<main>
-{% block body %}{% endblock %}
-</main>
-</body>
-</html>"""
-
-# ── HOME ──────────────────────────────────────────────────────────────
-HOME_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<div class="hero">
-  <div class="hero-title">&#x26A1; CYBEROPS</div>
-  <div class="hero-sub">REAL-TIME FORENSIC INVESTIGATION TERMINAL</div>
-  <div class="menu-grid">
-    <a class="menu-card" href="/log">
-      <span class="menu-icon">&#x1F4CB;</span>
-      <div class="menu-label">AUTH LOG</div>
-      <div class="menu-desc">Windows Security Event Log. Real failed &amp; successful logins.</div>
-      <div class="menu-real">&#x2714; REAL DATA</div>
-    </a>
-    <a class="menu-card" href="/scan">
-      <span class="menu-icon">&#x1F4E1;</span>
-      <div class="menu-label">PORT SCANNER</div>
-      <div class="menu-desc">Scan any host. Concurrent socket scanner with service ID.</div>
-      <div class="menu-real">&#x2714; REAL NETWORK</div>
-    </a>
-    <a class="menu-card" href="/packet">
-      <span class="menu-icon">&#x26A1;</span>
-      <div class="menu-label">LIVE PACKETS</div>
-      <div class="menu-desc">Scapy packet capture. SQL injection &amp; payload detection.</div>
-      <div class="menu-real">&#x2714; REAL TRAFFIC</div>
-    </a>
-    <a class="menu-card" href="/threat">
-      <span class="menu-icon">&#x1F3AF;</span>
-      <div class="menu-label">THREAT INTEL</div>
-      <div class="menu-desc">AbuseIPDB live lookup + local blacklist matching.</div>
-      <div class="menu-real">&#x2714; REAL API</div>
-    </a>
-  </div>
-</div>
-""")
-
-# ── LOGIN PAGE ────────────────────────────────────────────────────────
-LOGIN_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F512; USER LOGIN</h1>
-<div style="max-width:400px;margin:60px auto">
-  <div class="card">
-    <div class="card-title">AUTHENTICATE</div>
-    {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
-    <form method="POST" action="/login">
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">USERNAME</label>
-        <input type="text" name="username" placeholder="admin" required style="width:100%">
-      </div>
-      <div style="margin-bottom:20px">
-        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">PASSWORD</label>
-        <input type="password" name="password" placeholder="••••••••" required style="width:100%">
-      </div>
-      <button type="submit" style="width:100%;margin-bottom:12px">&#x2714; LOGIN</button>
-    </form>
-    <div style="text-align:center;font-size:.75rem;color:var(--dim)">
-      No account? <a href="/register" style="color:var(--accent);text-decoration:none">Register here</a>
-    </div>
-  </div>
-  <div style="text-align:center;margin-top:20px;font-size:.75rem;color:var(--dimmer)">
-    Demo: username=<strong>admin</strong> | password=<strong>admin@123</strong>
-  </div>
-</div>
-""")
-
-# ── REGISTER PAGE ─────────────────────────────────────────────────────
-REGISTER_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F4DD; CREATE ACCOUNT</h1>
-<div style="max-width:400px;margin:60px auto">
-  <div class="card">
-    <div class="card-title">NEW USER</div>
-    {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
-    {% if success %}<div class="alert alert-warn">Account created! <a href="/login" style="color:var(--accent)">Login now</a></div>{% endif %}
-    <form method="POST" action="/register">
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">USERNAME (3+ chars)</label>
-        <input type="text" name="username" placeholder="newuser" required style="width:100%">
-      </div>
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">PASSWORD (8+ chars)</label>
-        <input type="password" name="password" placeholder="••••••••" required style="width:100%" id="pwd1">
-      </div>
-      <div style="margin-bottom:20px">
-        <label style="display:block;margin-bottom:6px;font-size:.8rem;color:var(--dim)">CONFIRM PASSWORD</label>
-        <input type="password" name="password2" placeholder="••••••••" required style="width:100%">
-      </div>
-      <button type="submit" style="width:100%;margin-bottom:12px">&#x2714; CREATE ACCOUNT</button>
-    </form>
-    <div style="text-align:center;font-size:.75rem;color:var(--dim)">
-      Already have account? <a href="/login" style="color:var(--accent);text-decoration:none">Login here</a>
-    </div>
-  </div>
-</div>
-""")
-
-# ── PASSWORD AUDIT PAGE ───────────────────────────────────────────────
-AUDIT_PWD_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F50D; PASSWORD STRENGTH AUDITOR</h1>
-<div class="alert alert-info">Analyze password strength with industry-standard checks.</div>
-
-<div class="card">
-  <div class="card-title">AUDIT PASSWORD</div>
-  <form method="POST" action="/audit-pwd">
-    <div class="input-row">
-      <input type="password" name="password" placeholder="Enter password to audit..." required style="width:300px">
-      <button type="submit">&#x1F50D; ANALYZE</button>
-    </div>
-  </form>
-</div>
-
-{% if result %}
-<div class="card">
-  <div class="card-title">RESULT</div>
-  <div class="stats">
-    <div class="stat-box">
-      <div class="stat-val {% if result.strength=='WEAK' %}red{% elif result.strength=='FAIR' %}yellow{% elif result.strength=='GOOD' %}blue{% else %}green{% endif %}">
-        {{ result.strength }}
-      </div>
-      <div class="stat-lbl">STRENGTH</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-val {% if result.score < 40 %}red{% elif result.score < 60 %}yellow{% elif result.score < 80 %}blue{% else %}green{% endif %}">
-        {{ result.score }}/100
-      </div>
-      <div class="stat-lbl">SCORE</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-val {% if result.verdict=='PASS' %}green{% else %}red{% endif %}">{{ result.verdict }}</div>
-      <div class="stat-lbl">VERDICT</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-val">{{ result.length }}</div>
-      <div class="stat-lbl">CHARACTERS</div>
-    </div>
-  </div>
-
-  {% if result.issues %}
-  <div class="card" style="background:rgba(255,23,68,.05);border:1px solid rgba(255,23,68,.3)">
-    <div class="card-title" style="color:var(--accent2)">⚠ ISSUES FOUND</div>
-    <ul style="margin-left:20px;font-size:.8rem">
-      {% for issue in result.issues %}
-      <li style="color:var(--accent2);margin-bottom:6px">{{ issue }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% else %}
-  <div class="alert alert-warn">✓ No security issues detected</div>
-  {% endif %}
-
-  {% if result.recommendations %}
-  <div class="card">
-    <div class="card-title" style="color:var(--accent3)">💡 RECOMMENDATIONS</div>
-    <ul style="margin-left:20px;font-size:.8rem">
-      {% for rec in result.recommendations %}
-      <li style="color:var(--accent3);margin-bottom:6px">{{ rec }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-
-  <table style="margin-top:16px">
-    <tr><td class="dim">Uppercase</td><td>{% if result.has_uppercase %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td></tr>
-    <tr><td class="dim">Lowercase</td><td>{% if result.has_lowercase %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td></tr>
-    <tr><td class="dim">Numbers</td><td>{% if result.has_digits %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td></tr>
-    <tr><td class="dim">Special Chars</td><td>{% if result.has_special %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td></tr>
-  </table>
-</div>
-{% endif %}
-""")
-
-# ── DASHBOARD PAGE ────────────────────────────────────────────────────
-DASHBOARD_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F4CA; SECURITY DASHBOARD</h1>
-<div class="alert alert-info">Real-time overview of system security metrics and events.</div>
-
-<div class="stats">
-  <div class="stat-box">
-    <div class="stat-val {% if data.security_gauge.score >= 80 %}green{% elif data.security_gauge.score >= 60 %}blue{% elif data.security_gauge.score >= 40 %}yellow{% else %}red{% endif %}">
-      {{ data.security_gauge.score }}
-    </div>
-    <div class="stat-lbl">SECURITY SCORE</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val">{{ data.stats.total_events }}</div>
-    <div class="stat-lbl">AUTH EVENTS</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val red">{{ data.stats.brute_force_ips }}</div>
-    <div class="stat-lbl">BRUTE FORCE IPs</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val yellow">{{ data.stats.suspicious_ips }}</div>
-    <div class="stat-lbl">SUSPICIOUS IPs</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val">{{ data.stats.packets_captured }}</div>
-    <div class="stat-lbl">PACKETS</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val red">{{ data.stats.flagged_packets }}</div>
-    <div class="stat-lbl">THREATS</div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-title">VERDICT: {{ data.security_gauge.level }}</div>
-  <p style="font-size:.8rem;color:var(--dim)">Threats: {{ data.security_gauge.threats_detected }} | Flagged: {{ data.security_gauge.flagged_packets }} | Total Events: {{ data.security_gauge.total_events }}</p>
-</div>
-
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-  <div class="card">
-    <div class="card-title">TOP ATTACK IPs</div>
-    <table>
-      <thead><tr><th>IP</th><th>ATTEMPTS</th></tr></thead>
-      <tbody>
-      {% for ip_data in data.top_ips.labels[:5] %}
-      <tr><td class="blue">{{ data.top_ips.labels[loop.index0] }}</td><td class="red">{{ data.top_ips.values[loop.index0] }}</td></tr>
-      {% else %}
-      <tr><td colspan="2" class="dim">No attacks detected</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <div class="card-title">PROTOCOL DISTRIBUTION</div>
-    <table>
-      <thead><tr><th>PROTOCOL</th><th>COUNT</th></tr></thead>
-      <tbody>
-      {% for proto in data.protocol_dist.labels %}
-      <tr><td class="yellow">{{ proto }}</td><td>{{ data.protocol_dist.values[loop.index0] }}</td></tr>
-      {% else %}
-      <tr><td colspan="2" class="dim">No packets</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-""")
-
-# ── ALERTS PAGE ───────────────────────────────────────────────────────
-ALERTS_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x26A0; INTRUSION ALERTS</h1>
-
-<div class="stats">
-  <div class="stat-box"><div class="stat-val red">{{ stats.critical }}</div><div class="stat-lbl">CRITICAL</div></div>
-  <div class="stat-box"><div class="stat-val yellow">{{ stats.high }}</div><div class="stat-lbl">HIGH</div></div>
-  <div class="stat-box"><div class="stat-val blue">{{ stats.medium }}</div><div class="stat-lbl">MEDIUM</div></div>
-  <div class="stat-box"><div class="stat-val">{{ stats.low }}</div><div class="stat-lbl">LOW</div></div>
-  <div class="stat-box"><div class="stat-val">{{ stats.total }}</div><div class="stat-lbl">TOTAL</div></div>
-</div>
-
-{% if alerts %}
-<div class="card">
-  <div class="card-title">ACTIVE ALERTS</div>
-  <table style="font-size:.75rem">
-    <thead><tr><th>TIME</th><th>SEVERITY</th><th>PATTERN</th><th>SOURCE</th><th>DESCRIPTION</th></tr></thead>
-    <tbody>
-    {% for alert in alerts %}
-    <tr>
-      <td class="dim">{{ alert.timestamp[11:19] }}</td>
-      <td>
-        <span class="badge {% if alert.severity=='CRITICAL' %}badge-red{% elif alert.severity=='HIGH' %}badge-yellow{% elif alert.severity=='MEDIUM' %}badge-blue{% else %}badge-green{% endif %}">
-          {{ alert.severity }}
-        </span>
-      </td>
-      <td class="yellow">{{ alert.pattern }}</td>
-      <td class="blue">{{ alert.source_ip }}</td>
-      <td style="flex:1">{{ alert.description }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="alert alert-info">✓ No alerts generated. System is clean.</div>
-{% endif %}
-""")
-
-# ── LOG PAGE ──────────────────────────────────────────────────────────
-LOG_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F4CB; WINDOWS AUTH LOG</h1>
-{% if error %}
-<div class="alert alert-err">&#x26A0; {{ error }}</div>
-{% endif %}
-<div class="stats">
-  <div class="stat-box"><div class="stat-val red">{{ bf_count }}</div><div class="stat-lbl">BRUTE FORCE IPs</div></div>
-  <div class="stat-box"><div class="stat-val yellow">{{ si_count }}</div><div class="stat-lbl">SUSPICIOUS IPs</div></div>
-  <div class="stat-box"><div class="stat-val">{{ ev_count }}</div><div class="stat-lbl">EVENTS SCANNED</div></div>
-</div>
-
-<div class="card">
-  <div class="card-title">&#x1F525; BRUTE FORCE DETECTED</div>
-  <table>
-    <thead><tr><th>IP ADDRESS</th><th>FAILED LOGINS</th><th>VERDICT</th></tr></thead>
-    <tbody>
-    {% for x in brute_force %}
-    <tr><td class="blue">{{ x.ip }}</td><td class="red">{{ x.fails }}</td><td><span class="badge badge-red">BRUTE FORCE</span></td></tr>
-    {% else %}
-    <tr><td colspan="3" class="green">No brute force detected in last 24h</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="card">
-  <div class="card-title">&#x26A0; RECENT AUTH EVENTS (last 100)</div>
-  <table>
-    <thead><tr><th>TIME</th><th>TYPE</th><th>USER</th><th>IP</th></tr></thead>
-    <tbody>
-    {% for e in events %}
-    <tr>
-      <td class="dim">{{ e.time }}</td>
-      <td>{% if e.type=='FAILED' %}<span class="badge badge-red">FAILED</span>{% else %}<span class="badge badge-green">SUCCESS</span>{% endif %}</td>
-      <td class="yellow">{{ e.user }}</td>
-      <td class="blue">{{ e.ip }}</td>
-    </tr>
-    {% else %}
-    <tr><td colspan="4" class="dim">No events found</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-""")
-
-# ── SCAN PAGE ─────────────────────────────────────────────────────────
-SCAN_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F4E1; PORT SCANNER</h1>
-<div class="card">
-  <div class="card-title">SCAN TARGET</div>
-  <form method="GET" action="/scan">
-    <div class="input-row">
-      <input type="text" name="host" placeholder="Host / IP (e.g. 192.168.1.1)" value="{{ host }}" style="width:260px">
-      <select name="mode">
-        <option value="common" {% if mode=='common' %}selected{% endif %}>Common ports (fast)</option>
-        <option value="range" {% if mode=='range' %}selected{% endif %}>Range 1–1024</option>
-        <option value="full" {% if mode=='full' %}selected{% endif %}>Range 1–65535 (slow)</option>
-      </select>
-      <button type="submit">&#x25B6; SCAN</button>
-    </div>
-  </form>
-</div>
-
-{% if result %}
-{% if result.error %}
-<div class="alert alert-err">{{ result.error }}</div>
-{% else %}
-<div class="stats">
-  <div class="stat-box"><div class="stat-val red">{{ result.open|length }}</div><div class="stat-lbl">OPEN PORTS</div></div>
-  <div class="stat-box"><div class="stat-val">{{ result.total_scanned }}</div><div class="stat-lbl">PORTS SCANNED</div></div>
-  <div class="stat-box"><div class="stat-val green">{{ result.elapsed }}s</div><div class="stat-lbl">ELAPSED</div></div>
-</div>
-<div class="alert alert-info">HOST: {{ result.host }} &rarr; {{ result.ip }}</div>
-<div class="card">
-  <div class="card-title">OPEN PORTS</div>
-  <table>
-    <thead><tr><th>PORT</th><th>SERVICE</th><th>RISK</th></tr></thead>
-    <tbody>
-    {% for p in result.open %}
-    <tr>
-      <td class="blue">{{ p.port }}</td>
-      <td class="yellow">{{ p.service }}</td>
-      <td>{% if p.service in ['RDP','TELNET','VNC','FTP'] %}<span class="badge badge-red">HIGH RISK</span>{% elif p.service in ['SSH','SMB','MSSQL','MYSQL','MONGODB','REDIS'] %}<span class="badge badge-yellow">MEDIUM</span>{% else %}<span class="badge badge-green">NORMAL</span>{% endif %}</td>
-    </tr>
-    {% else %}
-    <tr><td colspan="3" class="green">No open ports found</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-{% else %}
-<div class="alert alert-info">Enter a host and click SCAN. Works on any IP or hostname.</div>
-{% endif %}
-""")
-
-# ── PACKET PAGE ───────────────────────────────────────────────────────
-PACKET_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x26A1; LIVE PACKET CAPTURE</h1>
-{% if not scapy_ok %}
-<div class="alert alert-err">
-  &#x26A0; Scapy not installed or Npcap missing.<br>
-  1. Install Npcap: <strong>https://npcap.com/#download</strong><br>
-  2. Run: <strong>pip install scapy</strong><br>
-  3. Run Flask as Administrator
-</div>
-{% else %}
-<div class="card">
-  <div class="card-title">CAPTURE CONTROL</div>
-  <div class="input-row">
-    <select id="iface">
-      {% for i in interfaces %}<option>{{ i }}</option>{% endfor %}
-    </select>
-    <input type="number" id="dur" value="30" min="5" max="300" style="width:90px"> <span class="dim" style="font-size:.72rem">seconds</span>
-    <button onclick="startCap()">&#x25B6; START CAPTURE</button>
-    <button class="danger" onclick="stopCap()">&#x25A0; STOP</button>
-    <button onclick="toggleFilter()">&#x1F6A8; THREATS ONLY</button>
-  </div>
-</div>
-
-<div class="stats">
-  <div class="stat-box"><div class="stat-val" id="s-total">{{ total }}</div><div class="stat-lbl">TOTAL CAPTURED</div></div>
-  <div class="stat-box"><div class="stat-val red" id="s-flagged">{{ flagged }}</div><div class="stat-lbl">THREATS DETECTED</div></div>
-  <div class="stat-box"><div class="stat-val" id="s-running">{{ 'ACTIVE' if running else 'IDLE' }}</div><div class="stat-lbl">STATUS</div></div>
-</div>
-
-<div class="card" style="padding:0">
-  <div class="card-title" style="padding:16px 22px 0">PACKET FEED</div>
-  <div id="feed" style="max-height:480px;overflow-y:auto">
-    {% for p in packets %}
-    <div class="pkt-row {% if p.flagged %}pkt-flagged{% endif %}">
-      <span class="pkt-time">{{ p.time }}</span>
-      <span class="pkt-ip">{{ p.src }}</span>
-      <span class="dim">&#x2192;</span>
-      <span class="pkt-ip">{{ p.dst }}</span>
-      <span class="badge {% if p.proto=='TCP' %}badge-blue{% else %}badge-yellow{% endif %}">{{ p.proto }}</span>
-      <span class="dim">:{{ p.dport }}</span>
-      {% if p.threats %}<span class="badge badge-red">{{ p.threats|join(', ') }}</span>{% endif %}
-      {% if p.payload %}<span class="pkt-payload">{{ p.payload }}</span>{% endif %}
-    </div>
-    {% else %}
-    <div class="pkt-row dim">No packets captured yet. Start capture above.</div>
-    {% endfor %}
-  </div>
-</div>
-
-<script>
-let filterThreats=false;
-let autoRefresh=null;
-function startCap(){
-  let iface=document.getElementById('iface').value;
-  let dur=document.getElementById('dur').value;
-  fetch('/packet/start',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({iface,duration:parseInt(dur)})})
-  .then(r=>r.json()).then(d=>{
-    alert(d.message);
-    autoRefresh=setInterval(refreshFeed,2000);
-  });
-}
-function stopCap(){
-  fetch('/packet/stop',{method:'POST'});
-  clearInterval(autoRefresh);
-}
-function toggleFilter(){filterThreats=!filterThreats;refreshFeed()}
-function refreshFeed(){
-  let url='/packet/data?flagged_only='+(filterThreats?'1':'0');
-  fetch(url).then(r=>r.json()).then(d=>{
-    document.getElementById('s-total').textContent=d.total;
-    document.getElementById('s-flagged').textContent=d.flagged;
-    document.getElementById('s-running').textContent=d.running?'ACTIVE':'IDLE';
-    let feed=document.getElementById('feed');
-    feed.innerHTML=d.packets.map(p=>`
-      <div class="pkt-row ${p.flagged?'pkt-flagged':''}">
-        <span class="pkt-time">${p.time}</span>
-        <span class="pkt-ip">${p.src}</span>
-        <span class="dim">→</span>
-        <span class="pkt-ip">${p.dst}</span>
-        <span class="badge ${p.proto==='TCP'?'badge-blue':'badge-yellow'}">${p.proto}</span>
-        <span class="dim">:${p.dport}</span>
-        ${p.threats.length?`<span class="badge badge-red">${p.threats.join(', ')}</span>`:''}
-        ${p.payload?`<span class="pkt-payload">${p.payload}</span>`:''}
-      </div>`).join('') || '<div class="pkt-row dim">No packets yet.</div>';
-  });
-}
-</script>
-{% endif %}
-""")
-
-# ── EXTRACTOR PAGE ────────────────────────────────────────────────────
-EXTRACTOR_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F50D; IOC THREAT EXTRACTOR</h1>
-<div class="alert alert-info">Extract indicators of compromise (IPs, domains, hashes, malware names) from content.</div>
-
-<div class="card">
-  <div class="card-title">EXTRACT INDICATORS</div>
-  <form method="POST" action="/extract">
-    <div class="input-row">
-      <select name="mode" style="width:160px">
-        <option value="text">Raw Content</option>
-        <option value="url">From URL</option>
-      </select>
-      <textarea id="content" name="content" placeholder="Paste content or enter URL..." style="width:100%;min-height:120px;border:1px solid #1a4a6e;background:#0a1525;color:#b0d4ee;font-family:monospace;padding:10px;border-radius:2px" required></textarea>
-      <button type="submit" style="width:100%;margin-top:10px">&#x26A1; EXTRACT</button>
-    </div>
-  </form>
-</div>
-
-{% if result and not result.get('error') %}
-<div class="stats">
-  <div class="stat-box">
-    <div class="stat-val">{{ result.stats.ipv4_count }}</div>
-    <div class="stat-lbl">IPv4 ADDRESSES</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val">{{ result.stats.domain_count }}</div>
-    <div class="stat-lbl">DOMAINS</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val red">{{ result.stats.suspicious_domain_count }}</div>
-    <div class="stat-lbl">SUSPICIOUS</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val">{{ result.stats.hash_count }}</div>
-    <div class="stat-lbl">HASHES</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val yellow">{{ result.stats.malware_families }}</div>
-    <div class="stat-lbl">MALWARE</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val">{{ result.stats.threat_level }}</div>
-    <div class="stat-lbl">THREAT LEVEL</div>
-  </div>
-</div>
-
-{% if result.indicators.ipv4 %}
-<div class="card">
-  <div class="card-title">IPv4 ADDRESSES ({{ result.indicators.ipv4|length }})</div>
-  <table>
-    <tbody>
-    {% for ip in result.indicators.ipv4 %}
-    <tr><td class="blue">{{ ip }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if result.indicators.domains.clean or result.indicators.domains.suspicious %}
-<div class="card">
-  <div class="card-title">DOMAINS ({{ result.indicators.domains.clean|length + result.indicators.domains.suspicious|length }})</div>
-  <table>
-    <tbody>
-    {% for domain, reason in result.indicators.domains.clean.items() %}
-    <tr><td class="blue">{{ domain }}</td><td class="dim" style="font-size:.7rem">{{ reason }}</td></tr>
-    {% endfor %}
-    {% for domain, reason in result.indicators.domains.suspicious.items() %}
-    <tr><td class="yellow">{{ domain }}</td><td class="yellow" style="font-size:.7rem">⚠ {{ reason }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if result.indicators.hashes.md5 or result.indicators.hashes.sha1 or result.indicators.hashes.sha256 %}
-<div class="card">
-  <div class="card-title">FILE HASHES ({{ result.indicators.hashes.md5|length + result.indicators.hashes.sha1|length + result.indicators.hashes.sha256|length }})</div>
-  <table>
-    <thead><tr><th>TYPE</th><th>HASH</th></tr></thead>
-    <tbody>
-    {% for h in result.indicators.hashes.md5 %}
-    <tr><td class="dim" style="font-size:.7rem">MD5</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
-    {% endfor %}
-    {% for h in result.indicators.hashes.sha1 %}
-    <tr><td class="dim" style="font-size:.7rem">SHA1</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
-    {% endfor %}
-    {% for h in result.indicators.hashes.sha256 %}
-    <tr><td class="dim" style="font-size:.7rem">SHA256</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if result.indicators.malware_families %}
-<div class="card">
-  <div class="card-title">MALWARE FAMILIES ({{ result.indicators.malware_families|length }})</div>
-  <table>
-    <thead><tr><th>FAMILY</th><th>MENTIONS</th></tr></thead>
-    <tbody>
-    {% for malware, count in result.indicators.malware_families.items() %}
-    <tr><td class="yellow">{{ malware }}</td><td class="red">{{ count }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% elif result and result.get('error') %}
-<div class="alert alert-err">&#x26A0; {{ result.error }}</div>
-{% endif %}
-""")
-
-# ── THREAT PAGE ───────────────────────────────────────────────────────
-THREAT_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F3AF; THREAT INTELLIGENCE</h1>
-<div class="alert alert-info">Uses AbuseIPDB API + local blacklist. Set ABUSEIPDB_KEY env var for live lookup.</div>
-
-<div class="card">
-  <div class="card-title">CHECK IP</div>
-  <form method="GET" action="/threat">
-    <div class="input-row">
-      <input type="text" name="ip" placeholder="Enter IP address" value="{{ query_ip }}" style="width:240px">
-      <button type="submit">&#x1F50D; CHECK</button>
-    </div>
-  </form>
-</div>
-
-{% if result %}
-<div class="card">
-  <div class="card-title">RESULT: {{ result.ip }}</div>
-  <div class="stats">
-    <div class="stat-box">
-      <div class="stat-val {% if result.is_malicious %}red{% else %}green{% endif %}">
-        {% if result.is_malicious %}THREAT{% else %}CLEAN{% endif %}
-      </div>
-      <div class="stat-lbl">VERDICT</div>
-    </div>
-    {% if result.api.api %}
-    <div class="stat-box">
-      <div class="stat-val {% if result.api.abuse_score > 50 %}red{% elif result.api.abuse_score > 25 %}yellow{% else %}green{% endif %}">
-        {{ result.api.abuse_score }}%
-      </div>
-      <div class="stat-lbl">ABUSE SCORE</div>
-    </div>
-    <div class="stat-box"><div class="stat-val yellow">{{ result.api.total_reports }}</div><div class="stat-lbl">REPORTS</div></div>
-    <div class="stat-box"><div class="stat-val">{{ result.api.country }}</div><div class="stat-lbl">COUNTRY</div></div>
-    {% endif %}
-  </div>
-  {% if result.api.api %}
-  <table>
-    <tr><td class="dim">ISP</td><td>{{ result.api.isp }}</td></tr>
-    <tr><td class="dim">DOMAIN</td><td>{{ result.api.domain }}</td></tr>
-    <tr><td class="dim">TOR NODE</td><td class="{% if result.api.is_tor %}red{% else %}green{% endif %}">{{ result.api.is_tor }}</td></tr>
-    <tr><td class="dim">LAST REPORTED</td><td>{{ result.api.last_reported }}</td></tr>
-  </table>
-  {% elif result.local.local_hit %}
-  <div class="alert alert-warn">&#x26A0; LOCAL BLACKLIST HIT: {{ result.local.reason }}</div>
-  {% else %}
-  <div class="alert alert-warn">Set ABUSEIPDB_KEY environment variable for live API data.</div>
-  {% endif %}
-</div>
-{% endif %}
-
-<div class="card">
-  <div class="card-title">LOCAL BLACKLIST</div>
-  <table>
-    <thead><tr><th>IP ADDRESS</th><th>REASON</th></tr></thead>
-    <tbody>
-    {% for ip, reason in blacklist.items() %}
-    <tr><td class="blue">{{ ip }}</td><td class="red">{{ reason }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-""")
-
-# ── SCAN URL PAGE ─────────────────────────────────────────────────────
-SCAN_URL_TMPL = BASE.replace("{% block body %}{% endblock %}", """
-<h1>&#x1F50D; SCAN URL FOR THREATS</h1>
-<div class="alert alert-info">Fetch webpage, extract clean content, analyze for IoCs (IPs, domains, hashes, malware).</div>
-
-<div class="card">
-  <div class="card-title">ENTER URL</div>
-  <form method="POST" action="/scan-url">
-    <div class="input-row">
-      <input type="text" name="url" placeholder="https://example.com" value="{{ url }}" style="width:400px" required>
-      <button type="submit">&#x26A1; SCAN</button>
-    </div>
-  </form>
-</div>
-
-{% if result and not result.get('error') %}
-<div class="stats">
-  <div class="stat-box">
-    <div class="stat-val">{{ result.stats.ipv4_count }}</div>
-    <div class="stat-lbl">IPv4 ADDRESSES</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val">{{ result.stats.domain_count }}</div>
-    <div class="stat-lbl">DOMAINS</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val red">{{ result.stats.suspicious_domain_count }}</div>
-    <div class="stat-lbl">SUSPICIOUS</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val">{{ result.stats.hash_count }}</div>
-    <div class="stat-lbl">HASHES</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val yellow">{{ result.stats.malware_families }}</div>
-    <div class="stat-lbl">MALWARE</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-val">{{ result.stats.threat_level }}</div>
-    <div class="stat-lbl">THREAT LEVEL</div>
-  </div>
-</div>
-
-{% if result.indicators.ipv4 %}
-<div class="card">
-  <div class="card-title">IPv4 ADDRESSES ({{ result.indicators.ipv4|length }})</div>
-  <table>
-    <tbody>
-    {% for ip in result.indicators.ipv4 %}
-    <tr><td class="blue">{{ ip }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if result.indicators.domains.clean or result.indicators.domains.suspicious %}
-<div class="card">
-  <div class="card-title">DOMAINS ({{ result.indicators.domains.clean|length + result.indicators.domains.suspicious|length }})</div>
-  <table>
-    <tbody>
-    {% for domain, reason in result.indicators.domains.clean.items() %}
-    <tr><td class="blue">{{ domain }}</td><td class="dim" style="font-size:.7rem">{{ reason }}</td></tr>
-    {% endfor %}
-    {% for domain, reason in result.indicators.domains.suspicious.items() %}
-    <tr><td class="yellow">{{ domain }}</td><td class="yellow" style="font-size:.7rem">⚠ {{ reason }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if result.indicators.hashes.md5 or result.indicators.hashes.sha1 or result.indicators.hashes.sha256 %}
-<div class="card">
-  <div class="card-title">HASHES ({{ result.indicators.hashes.md5|length + result.indicators.hashes.sha1|length + result.indicators.hashes.sha256|length }})</div>
-  <table>
-    <thead><tr><th>TYPE</th><th>HASH</th></tr></thead>
-    <tbody>
-    {% for h in result.indicators.hashes.md5 %}
-    <tr><td class="dim" style="font-size:.7rem">MD5</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
-    {% endfor %}
-    {% for h in result.indicators.hashes.sha1 %}
-    <tr><td class="dim" style="font-size:.7rem">SHA1</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
-    {% endfor %}
-    {% for h in result.indicators.hashes.sha256 %}
-    <tr><td class="dim" style="font-size:.7rem">SHA256</td><td class="blue" style="font-size:.7rem">{{ h }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if result.indicators.malware_families %}
-<div class="card">
-  <div class="card-title">MALWARE FAMILIES ({{ result.indicators.malware_families|length }})</div>
-  <table>
-    <thead><tr><th>FAMILY</th><th>MENTIONS</th></tr></thead>
-    <tbody>
-    {% for malware, count in result.indicators.malware_families.items() %}
-    <tr><td class="yellow">{{ malware }}</td><td class="red">{{ count }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% elif result and result.get('error') %}
-<div class="alert alert-err">&#x26A0; {{ result.error }}</div>
-{% endif %}
-""")
-
-# ── ROUTES ────────────────────────────────────────────────────────────
 @app.route("/")
-def home():
-    return render_template_string(HOME_TMPL, active="home", title="HOME")
+def landing():
+    return render_template("landing.html", active="landing", title="WELCOME")
+
+
+@app.route("/guide")
+def guide():
+    return render_template("guide.html", active="guide", title="USER GUIDE")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    fail_data = None
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        ip = request.remote_addr
+        result = login_user(username, password, ip=ip)
+        
+        if result["success"]:
+            next_page = request.args.get("redirect", "/dashboard")
+            resp_obj = make_response(redirect(next_page))
+            resp_obj.set_cookie("session_token", result["token"], max_age=3600, httponly=True)
+            return resp_obj
+        else:
+            error = result.get("error", "Login failed")
+            if "count" in result:
+                fail_data = {"user": username, "count": result["count"], "msg": error}
+                # Integrate threat event generation
+                from intrusion_monitor import generate_alert
+                generate_alert(
+                    pattern_type="auth_failure",
+                    severity="HIGH" if result["count"] >= 3 else "MEDIUM",
+                    source_ip=ip,
+                    description=f"Failed credential authentication attempt for user: {username} (Attempt {result['count']})",
+                    evidence={"user": username, "attempt": result["count"]}
+                )
+    
+    return render_template("login.html", active="login", title="LOGIN", error=error, fail_data=fail_data)
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    error = None
+    success = False
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        password2 = request.form.get("password2", "")
+
+        from password_auditor import audit_password_pair
+        pwd_audit = audit_password_pair(password, password2)
+        
+        if not pwd_audit["match"]:
+            error = "Passwords do not match"
+        elif pwd_audit["verdict"] == "FAIL":
+            error = "Password does not meet policy requirements. " + (pwd_audit["issues"][0] if pwd_audit["issues"] else "")
+        else:
+            result = create_user(username, password)
+            if result["success"]:
+                success = True
+            else:
+                error = result.get("error", "Registration failed")
+
+    return render_template("register.html", active="login", title="REGISTER", error=error, success=success)
+
+
+@app.route("/logout")
+def logout():
+    resp = make_response(redirect("/"))
+    resp.delete_cookie("session_token")
+    return resp
+
+
+@app.route("/tools")
+@require_login
+def tools(user):
+    return render_template("tools.html", active="tools", title="TOOLS")
+
+
+@app.route("/dashboard")
+@require_login
+def dashboard(user):
+    from log_scanner import read_windows_auth_log
+    from packet_capture import get_packets
+    from visualizer import generate_dashboard_data
+    from intrusion_monitor import get_alert_stats
+
+    log_data = read_windows_auth_log(hours_back=24)
+    log_data["alert_stats"] = get_alert_stats()
+    packets = get_packets(limit=500)
+    packet_data = {"packets": packets}
+
+    data = generate_dashboard_data(log_data, packet_data, [])
+    return render_template("dashboard.html", active="dashboard", title="DASHBOARD", data=data)
 
 
 @app.route("/log")
-def log():
+@require_login
+def log(user):
     from log_scanner import read_windows_auth_log
     d = read_windows_auth_log(hours_back=24)
-    return render_template_string(LOG_TMPL,
-        active="log", title="AUTH LOG",
+    return render_template("log.html",
+        active="tools", title="AUTH LOG",
         error=d.get("error"),
         brute_force=d.get("brute_force", []),
         events=d.get("events", []),
@@ -1010,7 +142,8 @@ def log():
 
 
 @app.route("/scan")
-def scan():
+@require_login
+def scan(user):
     from log_scanner import scan_ports_real, quick_scan_common
     host = request.args.get("host", "")
     mode = request.args.get("mode", "common")
@@ -1022,19 +155,17 @@ def scan():
             result = scan_ports_real(host, port_range=(1, 1024))
         else:
             result = scan_ports_real(host, port_range=(1, 65535), max_workers=200)
-    return render_template_string(SCAN_TMPL,
-        active="scan", title="PORT SCAN",
-        host=host, mode=mode, result=result
-    )
+    return render_template("scan.html", active="tools", title="PORT SCAN", host=host, mode=mode, result=result)
 
 
 @app.route("/packet")
-def packet():
+@require_login
+def packet(user):
     from packet_capture import get_packets, get_interfaces, get_status
     status = get_status()
     pkts = get_packets(limit=80)
-    return render_template_string(PACKET_TMPL,
-        active="packet", title="PACKETS",
+    return render_template("packet.html",
+        active="tools", title="PACKETS",
         scapy_ok=status["scapy_ok"],
         interfaces=get_interfaces(),
         packets=pkts,
@@ -1045,22 +176,25 @@ def packet():
 
 
 @app.route("/packet/start", methods=["POST"])
-def packet_start():
+@require_login
+def packet_start(user):
     from packet_capture import start_capture
-    data = request.get_json()
+    data = request.get_json() or {}
     ok, msg = start_capture(iface=data.get("iface"), duration=data.get("duration", 30))
     return jsonify({"ok": ok, "message": msg})
 
 
 @app.route("/packet/stop", methods=["POST"])
-def packet_stop():
+@require_login
+def packet_stop(user):
     from packet_capture import stop_capture
     stop_capture()
     return jsonify({"ok": True})
 
 
 @app.route("/packet/data")
-def packet_data():
+@require_login
+def packet_data(user):
     from packet_capture import get_packets, get_status
     flagged_only = request.args.get("flagged_only") == "1"
     status = get_status()
@@ -1074,14 +208,15 @@ def packet_data():
 
 
 @app.route("/threat")
-def threat():
+@require_login
+def threat(user):
     from threat_intel import check_ip_full, get_local_blacklist
     query_ip = request.args.get("ip", "")
     result = None
     if query_ip:
         result = check_ip_full(query_ip.strip())
-    return render_template_string(THREAT_TMPL,
-        active="threat", title="THREAT INTEL",
+    return render_template("threat.html",
+        active="tools", title="THREAT INTEL",
         query_ip=query_ip,
         result=result,
         blacklist=get_local_blacklist()
@@ -1089,8 +224,9 @@ def threat():
 
 
 @app.route("/extract", methods=["GET", "POST"])
-def extract():
-    from threat_extractor import extract, extract_from_url
+@require_login
+def extract(user):
+    from threat_extractor import extract as extract_data, extract_from_url
     result = None
     if request.method == "POST":
         mode = request.form.get("mode", "text")
@@ -1099,17 +235,15 @@ def extract():
             if mode == "url":
                 result = extract_from_url(content)
             else:
-                result = extract(content)
-    return render_template_string(EXTRACTOR_TMPL,
-        active="extract", title="IOC EXTRACT",
-        result=result
-    )
+                result = extract_data(content)
+    return render_template("extract.html", active="tools", title="IOC EXTRACT", result=result)
 
 
 @app.route("/scan-url", methods=["GET", "POST"])
-def scan_url():
+@require_login
+def scan_url(user):
     from web_fetcher import fetch_and_clean
-    from threat_extractor import extract
+    from threat_extractor import extract as extract_data
     url = request.form.get("url", "") if request.method == "POST" else request.args.get("url", "")
     url = url.strip() if url else ""
     result = None
@@ -1119,122 +253,33 @@ def scan_url():
             result = {"error": fetch_result["error"], "url": url}
         else:
             content = fetch_result.get("content", "")
-            result = extract(content, source_url=url)
-    return render_template_string(SCAN_URL_TMPL,
-        active="scan-url", title="SCAN URL",
-        url=url,
-        result=result
-    )
-
-
-# ── NEW MODULES: LOGIN, AUTH, DASHBOARD, ALERTS ───────────────────────
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    from auth_manager import login_user
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        result = login_user(username, password)
-        if result["success"]:
-            resp = render_template_string(HOME_TMPL, active="home", title="HOME")
-            resp = render_template_string(resp if isinstance(resp, str) else str(resp))
-            from flask import make_response
-            resp_obj = make_response(resp)
-            resp_obj.set_cookie("session_token", result["token"], max_age=3600, httponly=True)
-            return resp_obj
-        else:
-            error = result.get("error", "Login failed")
-    return render_template_string(LOGIN_TMPL,
-        active="login", title="LOGIN",
-        error=error
-    )
-
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    from auth_manager import create_user, login_user
-    from password_auditor import audit_password_pair
-    error = None
-    success = False
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        password2 = request.form.get("password2", "")
-
-        # Validate passwords match
-        pwd_audit = audit_password_pair(password, password2)
-        if not pwd_audit["match"]:
-            error = "Passwords do not match"
-        elif pwd_audit["verdict"] == "FAIL":
-            error = "Password too weak. " + (pwd_audit["issues"][0] if pwd_audit["issues"] else "See audit tool")
-        else:
-            result = create_user(username, password)
-            if result["success"]:
-                success = True
-                error = None
-            else:
-                error = result.get("error", "Registration failed")
-
-    return render_template_string(REGISTER_TMPL,
-        active="login", title="REGISTER",
-        error=error,
-        success=success
-    )
-
-
-@app.route("/logout")
-def logout():
-    from flask import make_response, redirect
-    resp = make_response(redirect("/"))
-    resp.delete_cookie("session_token")
-    return resp
+            result = extract_data(content, source_url=url)
+    return render_template("scan_url.html", active="tools", title="SCAN URL", url=url, result=result)
 
 
 @app.route("/audit-pwd", methods=["GET", "POST"])
-def audit_pwd():
+@require_login
+def audit_pwd(user):
     from password_auditor import audit_password
     result = None
     if request.method == "POST":
         password = request.form.get("password", "")
         if password:
             result = audit_password(password)
-    return render_template_string(AUDIT_PWD_TMPL,
-        active="audit-pwd", title="PWD AUDIT",
-        result=result
-    )
-
-
-@app.route("/dashboard")
-def dashboard():
-    from log_scanner import read_windows_auth_log
-    from packet_capture import get_packets, get_status
-    from visualizer import generate_dashboard_data
-
-    log_data = read_windows_auth_log(hours_back=24)
-    packets = get_packets(limit=500)
-    packet_data = {"packets": packets}
-
-    data = generate_dashboard_data(log_data, packet_data, [])
-
-    return render_template_string(DASHBOARD_TMPL,
-        active="dashboard", title="DASHBOARD",
-        data=data
-    )
+    return render_template("audit_pwd.html", active="tools", title="PWD AUDIT", result=result)
 
 
 @app.route("/alerts")
-def alerts():
+@require_login
+def alerts(user):
     from intrusion_monitor import get_alerts, get_alert_stats, analyze_auth_events, analyze_packets
     from log_scanner import read_windows_auth_log
     from packet_capture import get_packets
 
-    # Analyze recent events
     log_data = read_windows_auth_log(hours_back=24)
     packets = get_packets(limit=200)
 
-    # Generate alerts from current events
+    # Trigger threat detection on current states
     analyze_auth_events(
         log_data.get("events", []),
         log_data.get("brute_force", [])
@@ -1244,15 +289,12 @@ def alerts():
     alerts_list = get_alerts(limit=100)
     stats = get_alert_stats()
 
-    return render_template_string(ALERTS_TMPL,
-        active="alerts", title="ALERTS",
-        alerts=alerts_list,
-        stats=stats
-    )
+    return render_template("alerts.html", active="alerts", title="ALERTS", alerts=alerts_list, stats=stats)
 
 
 @app.route("/alerts/data")
-def alerts_data():
+@require_login
+def alerts_data(user):
     from intrusion_monitor import get_alerts, get_alert_stats
     alerts_list = get_alerts(limit=50)
     stats = get_alert_stats()
@@ -1262,9 +304,28 @@ def alerts_data():
     })
 
 
+@app.route("/feed")
+@require_login
+def feed(user):
+    from web_scraper import PRESET_SOURCES, scrape_preset
+    source_key = request.args.get("source", "thehackernews")
+    
+    if source_key not in PRESET_SOURCES:
+        source_key = "thehackernews"
+        
+    feed_data = scrape_preset(source_key)
+    return render_template("feed.html",
+        active="tools", title="THREAT FEED",
+        sources=PRESET_SOURCES,
+        active_source=source_key,
+        feed_data=feed_data
+    )
+
+
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 7860))
     print("\n" + "="*55)
-    print("  CYBEROPS — Real Cyber Investigation System")
-    print("  http://127.0.0.1:5000")
+    print("  ARGUS — Security Intelligence Console")
+    print(f"  http://127.0.0.1:{port}")
     print("="*55 + "\n")
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=port)

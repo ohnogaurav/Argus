@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="hero" style="padding: 20px 0 30px;">
+    <h1 class="hero-title" style="font-size: 2.2rem; margin-bottom: 8px;">SECURITY TOOLKIT</h1>
+    <p class="hero-sub" style="font-size: 0.9rem; margin-bottom: 30px;">SELECT AN OPERATIONS MODULE TO COMMENCE ANALYSIS</p>
+    
+    <div class="menu-grid">
+        <a class="menu-card" href="/log">
+            <span class="menu-icon">🔐</span>
+            <div class="menu-label">Auth Log Auditor</div>
+            <div class="menu-desc">Examines Windows Security logs (or live simulated feed) for credential attacks, login trends, and brute force events.</div>
+            <div class="menu-footer">
+                <span class="menu-tag">Forensic</span>
+                <span style="color: var(--accent-green);">● Active</span>
+            </div>
+        </a>
+
+        <a class="menu-card" href="/scan">
+            <span class="menu-icon">📡</span>
+            <div class="menu-label">Port Scanner</div>
+            <div class="menu-desc">Concurrent multi-threaded TCP socket scanner to verify open ports and detect running network services.</div>
+            <div class="menu-footer">
+                <span class="menu-tag">Recon</span>
+                <span style="color: var(--accent-green);">● Active</span>
+            </div>
+        </a>
+
+        <a class="menu-card" href="/packet">
+            <span class="menu-icon">📊</span>
+            <div class="menu-label">Network Sniffer</div>
+            <div class="menu-desc">Captures live network packets (or simulated traffic streams) to inspect payloads, filter protocols, and alert on malware signatures.</div>
+            <div class="menu-footer">
+                <span class="menu-tag">Monitoring</span>
+                <span style="color: var(--accent-green);">● Active</span>
+            </div>
+        </a>
+
+        <a class="menu-card" href="/threat">
+            <span class="menu-icon">🔬</span>
+            <div class="menu-label">IP Threat Intel</div>
+            <div class="menu-desc">Cross-references external IP addresses against global AbuseIPDB databases and local blacklist policies for reputation scores.</div>
+            <div class="menu-footer">
+                <span class="menu-tag">Intelligence</span>
+                <span style="color: var(--accent-green);">● Active</span>
+            </div>
+        </a>
+
+        <a class="menu-card" href="/extract">
+            <span class="menu-icon">⚡</span>
+            <div class="menu-label">IoC Extractor</div>
+            <div class="menu-desc">Extracts structured Indicators of Compromise (IPs, domains, email addresses, file hashes, and common malware family names) from raw text files.</div>
+            <div class="menu-footer">
+                <span class="menu-tag">Parser</span>
+                <span style="color: var(--accent-green);">● Active</span>
+            </div>
+        </a>
+
+        <a class="menu-card" href="/scan-url">
+            <span class="menu-icon">🌐</span>
+            <div class="menu-label">URL Web Analyzer</div>
+            <div class="menu-desc">Fetches target webpage content, parses and sanitizes raw HTML, and checks the page for malware keywords or suspicious domains.</div>
+            <div class="menu-footer">
+                <span class="menu-tag">Web Scraper</span>
+                <span style="color: var(--accent-green);">● Active</span>
+            </div>
+        </a>
+
+        <a class="menu-card" href="/audit-pwd">
+            <span class="menu-icon">🛡️</span>
+            <div class="menu-label">Credential Auditor</div>
+            <div class="menu-desc">Performs strength auditing on proposed passwords using pattern sequence checks, character requirements, and common dictionaries.</div>
+            <div class="menu-footer">
+                <span class="menu-tag">Policy Check</span>
+                <span style="color: var(--accent-green);">● Active</span>
+            </div>
+        </a>
+
+        <a class="menu-card" href="/feed">
+            <span class="menu-icon">📰</span>
+            <div class="menu-label">Threat Intel Feed</div>
+            <div class="menu-desc">Aggregates and formats real-time security warnings, advisories, and industry updates from preset cybersecurity news sources.</div>
+            <div class="menu-footer">
+                <span class="menu-tag">Feed Aggregator</span>
+                <span style="color: var(--accent-green);">● Active</span>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>🔐 Authentication Log Auditor</h1>
+
+{% if error %}
+<div class="alert alert-err">
+    <strong>System Warning:</strong> {{ error }}
+</div>
+{% endif %}
+
+<div class="stats">
+    <div class="stat-box"><div class="stat-val red">{{ bf_count }}</div><div class="stat-lbl">Brute Force IPs</div></div>
+    <div class="stat-box"><div class="stat-val orange">{{ si_count }}</div><div class="stat-lbl">Suspicious Sources</div></div>
+    <div class="stat-box"><div class="stat-val">{{ ev_count }}</div><div class="stat-lbl">Logs Audited</div></div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: start;">
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <div class="card-title" style="padding: 20px 24px 8px;">🚨 Flagged Brute Force IPs</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Source IP</th>
+                    <th>Failed Hits</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for x in brute_force %}
+                <tr>
+                    <td style="font-family: var(--font-mono); color: var(--accent); font-weight: 500;">{{ x.ip }}</td>
+                    <td style="font-family: var(--font-mono); color: var(--accent-red); font-weight: 600;">{{ x.fails }}</td>
+                    <td><span class="badge badge-red">Blocklisted</span></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: var(--accent-green); padding: 30px;">
+                        No brute force events logged in the last 24h
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <div class="card-title" style="padding: 20px 24px 8px;">📑 Recent Authentication Events</div>
+        <div style="max-height: 480px; overflow-y: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Type</th>
+                        <th>User Principal</th>
+                        <th>Source IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in events %}
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--text-dark); font-size: 0.8rem;">{{ e.time }}</td>
+                        <td>
+                            {% if e.type=='FAILED' %}
+                                <span class="badge badge-red">FAILED</span>
+                            {% else %}
+                                <span class="badge badge-green">SUCCESS</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-family: var(--font-mono); font-weight: 600; color: var(--accent-orange);">{{ e.user }}</td>
+                        <td style="font-family: var(--font-mono); color: var(--accent-blue);">{{ e.ip }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: var(--text-dark); padding: 30px;">
+                            No authentication events recorded.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

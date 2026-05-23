@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>⚠️ Intrusion Alert Monitor</h1>
+
+<div class="stats">
+    <div class="stat-box"><div class="stat-val red">{{ stats.critical }}</div><div class="stat-lbl">CRITICAL</div></div>
+    <div class="stat-box"><div class="stat-val orange">{{ stats.high }}</div><div class="stat-lbl">HIGH</div></div>
+    <div class="stat-box"><div class="stat-val blue">{{ stats.medium }}</div><div class="stat-lbl">MEDIUM</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:var(--accent-green)">{{ stats.low }}</div><div class="stat-lbl">LOW</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:#fff">{{ stats.total }}</div><div class="stat-lbl">TOTAL ALERTS</div></div>
+</div>
+
+{% if alerts %}
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="card-title" style="padding: 20px 24px 8px;">ACTIVE INTRUSION THREATS</div>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Severity</th>
+                    <th>Attack Vector</th>
+                    <th>Source IP</th>
+                    <th>Detailed Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr>
+                    <td style="font-family: var(--font-mono); color: var(--text-dark); font-size: 0.8rem;">
+                        {{ alert.timestamp[11:19] }}
+                    </td>
+                    <td>
+                        <span class="badge {% if alert.severity=='CRITICAL' %}badge-red{% elif alert.severity=='HIGH' %}badge-yellow{% elif alert.severity=='MEDIUM' %}badge-blue{% else %}badge-green{% endif %}">
+                            {{ alert.severity }}
+                        </span>
+                    </td>
+                    <td style="font-family: var(--font-mono); font-weight: 600; color: var(--accent-orange);">
+                        {{ alert.pattern }}
+                    </td>
+                    <td style="font-family: var(--font-mono); font-weight: 500; color: var(--accent-blue);">
+                        {{ alert.source_ip }}
+                    </td>
+                    <td style="line-height: 1.4; font-size: 0.82rem; max-width: 450px;">
+                        {{ alert.description }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <strong>System Clean:</strong> No intrusion alerts have been triggered. All endpoints are stable.
+</div>
+{% endif %}
+{% endblock %}

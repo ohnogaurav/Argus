@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>📡 Remote Endpoint Port Scanner</h1>
+
+<div class="card">
+    <div class="card-title">Initiate Port Scan</div>
+    <form method="GET" action="/scan">
+        <div class="input-row">
+            <input type="text" name="host" placeholder="Host / IP (e.g. 8.8.8.8 or scanme.nmap.org)" value="{{ host }}" style="flex-grow: 2; min-width: 250px;" required>
+            <select name="mode" style="flex-grow: 1;">
+                <option value="common" {% if mode=='common' %}selected{% endif %}>Common ports (fast)</option>
+                <option value="range" {% if mode=='range' %}selected{% endif %}>User range (1–1024)</option>
+                <option value="full" {% if mode=='full' %}selected{% endif %}>Full range (1–65535, slow)</option>
+            </select>
+            <button type="submit">START SCAN</button>
+        </div>
+    </form>
+</div>
+
+{% if result %}
+    {% if result.error %}
+        <div class="alert alert-err">
+            <strong>Scan Failed:</strong> {{ result.error }}
+        </div>
+    {% else %}
+        <div class="stats">
+            <div class="stat-box"><div class="stat-val red">{{ result.open|length }}</div><div class="stat-lbl">Open Ports</div></div>
+            <div class="stat-box"><div class="stat-val" style="color:#fff">{{ result.total_scanned }}</div><div class="stat-lbl">Scanned</div></div>
+            <div class="stat-box"><div class="stat-val green">{{ result.elapsed }}s</div><div class="stat-lbl">Scan Time</div></div>
+        </div>
+        
+        <div class="alert alert-info" style="font-family: var(--font-mono); font-size: 0.82rem;">
+            Target Host: <b>{{ result.host }}</b> &rarr; Resolved IP Address: <b>{{ result.ip }}</b>
+        </div>
+        
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <div class="card-title" style="padding: 20px 24px 8px;">Target Open Ports</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Port Number</th>
+                        <th>Standard Service</th>
+                        <th>Exposure Level</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in result.open %}
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--accent); font-weight: 600;">{{ p.port }}</td>
+                        <td style="font-family: var(--font-mono); color: var(--accent-orange); font-weight: 500;">{{ p.service }}</td>
+                        <td>
+                            {% if p.service in ['RDP','TELNET','VNC','FTP'] %}
+                                <span class="badge badge-red">Critical Risk</span>
+                            {% elif p.service in ['SSH','SMB','MSSQL','MYSQL','MONGODB','REDIS'] %}
+                                <span class="badge badge-yellow">Medium Exposure</span>
+                            {% else %}
+                                <span class="badge badge-green">Low Risk</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: var(--accent-green); padding: 30px;">
+                            No open ports found. Endpoint is fully filtered.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="alert alert-info">
+        <strong>Information:</strong> Enter a target hostname or IP address above to begin. Scans execute concurrently using socket connections.
+    </div>
+{% endif %}
+{% endblock %}

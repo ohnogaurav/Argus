@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="hero">
+    <h1 class="hero-title">ARGUS</h1>
+    <p class="hero-sub">ADVANCED FORWARD SECURITY OPERATIONS & NETWORK TELEMETRY CENTER</p>
+    
+    <div style="max-width:850px; margin:0 auto; text-align:left;">
+        <p style="margin-bottom:32px; font-size:1.05rem; line-height:1.6; color:var(--text-dim); text-align:center;">
+            Welcome to the security analysis console. Argus monitors authentication activities, detects real-time packet anomalies, scans endpoints, aggregates security feeds, and checks IP reputations.
+        </p>
+        
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(380px, 1fr)); gap:20px; margin-bottom:48px;">
+            <div class="card">
+                <div class="card-title">📡 Real-Time Telemetry</div>
+                <p style="font-size:0.85rem; color:var(--text-dim); line-height:1.5;">
+                    Performs network packet captures and applies custom heuristics to flag SQL Injection, directory traversal, and brute-force attempts.
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-title">🔐 Forensic Log Auditing</div>
+                <p style="font-size:0.85rem; color:var(--text-dim); line-height:1.5;">
+                    Scans Windows security logs and auth timelines to isolate failed login behaviors and identify active brute force attacks.
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-title">🔬 Reputation & Extraction</div>
+                <p style="font-size:0.85rem; color:var(--text-dim); line-height:1.5;">
+                    Performs network port scanning, checks IP reputation using AbuseIPDB databases, and extracts indicators of compromise (IoCs).
+                </p>
+            </div>
+            <div class="card">
+                <div class="card-title">📊 Visual Intelligence</div>
+                <p style="font-size:0.85rem; color:var(--text-dim); line-height:1.5;">
+                    Visualizes security status with dynamic Plotly-powered charts and a comprehensive security threat score.
+                </p>
+            </div>
+        </div>
+        
+        <div style="text-align:center;">
+            {% if current_user %}
+                <a href="/dashboard" class="btn" style="padding:14px 40px; font-size:1rem;">ACCESS DASHBOARD</a>
+            {% else %}
+                <a href="/login" class="btn" style="padding:14px 40px; font-size:1rem; margin-right:16px;">🔑 ACCESS TERMINAL</a>
+                <a href="/register" class="btn secondary" style="padding:14px 40px; font-size:1rem;">📝 REGISTER</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
