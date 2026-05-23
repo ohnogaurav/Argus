@@ -8,10 +8,6 @@ app_port: 7860
 pinned: false
 ---
 
-<p align="center">
-  <img src="pic.png" alt="Argus Banner" width="100%">
-</p>
-
 # ARGUS — Security Operations & Network Telemetry Console
 
 Argus is an advanced, lightweight Security Operations Center (SOC) dashboard and forensics investigation suite. Built with Python and Flask, it simulates real-world threat hunting, packet analysis, and intrusion detection workflows.
@@ -152,25 +148,3 @@ If you are a recruiter reviewing this project, you can use the following sample 
    Open **[http://127.0.0.1:7860](http://127.0.0.1:7860)**.
 
 ---
-
-## 🚀 Pushing to GitHub & Hugging Face
-
-### 1. Push to GitHub
-Initialize git and push to your GitHub repository:
-```bash
-git init
-git add .
-git commit -m "Argus Refactor: Clean folder structures, premium dark UI/UX, simulation fallbacks, and recruiter manual"
-git branch -M main
-git remote add origin https://github.com/ohnogaurav/Argus.git
-git push -u origin main --force
-```
-
-### 2. Push to Hugging Face Spaces (Docker Blank Space)
-1. In your Hugging Face space (`https://huggingface.co/spaces/ohnogaurav/Argus`), grab the Git remote URL.
-2. Add Hugging Face as a remote and push:
-   ```bash
-   git remote add hf https://huggingface.co/spaces/ohnogaurav/Argus
-   git push hf main --force
-   ```
-3. Hugging Face will read the [Dockerfile](file:///c:/Users/gaura/Downloads/CyberOPS-master/CyberOPS-master/Dockerfile) in this repository and automatically deploy it.
